@@ -87,16 +87,14 @@
 #'     seed = 123,
 #'     verbose = FALSE
 #' )
-impute_metadata <- function(
-      micara_obj,
-      impute_vars = NULL,
-      auxiliary_predictors = NULL,
-      m = 5,
-      method = NULL, # (allowing default algorithm selection per data type: pmm (Predictive Mean Matching) for continuous, logreg (Logistic Regression) for binary factors, polyreg (polytomous logistic regression) for unordered factors) or a named vector.
-      seed = 123,
-      imputation_index = 1,
-      verbose = TRUE
-) {
+impute_metadata <- function(micara_obj,
+                            impute_vars = NULL,
+                            auxiliary_predictors = NULL,
+                            m = 5,
+                            method = NULL, # (allowing default algorithm selection per data type: pmm (Predictive Mean Matching) for continuous, logreg (Logistic Regression) for binary factors, polyreg (polytomous logistic regression) for unordered factors) or a named vector.
+                            seed = 123,
+                            imputation_index = 1,
+                            verbose = TRUE) {
     # simple class check
     if (!inherits(micara_obj, "micara_input")) {
         stop(

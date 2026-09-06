@@ -1,6 +1,6 @@
 # Helper to create lightweight mock micara_interactions objects for testing
 make_mock_sankey_interactions <- function() {
-    # DiseaseA has mixed positive and negative links
+    # DiseaseA has mixed positive and negative links (local AND global)
     links_a <- data.frame(
         taxon = c("Taxon_1", "Taxon_2", "Taxon_3", "Taxon_4"),
         pathway = c("Pathway_1", "Pathway_1", "Pathway_2", "Pathway_2"),
@@ -10,6 +10,9 @@ make_mock_sankey_interactions <- function() {
         direction = c("positive", "negative", "positive", "negative"),
         stringsAsFactors = FALSE
     )
+
+    # Subset for global links
+    global_links_a <- links_a[c(1, 2), , drop = FALSE]
 
     node_directions_a <- data.frame(
         name = c("Taxon_1", "Taxon_2", "Taxon_3", "Taxon_4", "Pathway_1", "Pathway_2"),
@@ -21,10 +24,11 @@ make_mock_sankey_interactions <- function() {
     disease_a <- list(
         status = "analysed",
         links = links_a,
+        global_links = global_links_a,
         node_directions = node_directions_a
     )
 
-    # DiseaseB has ONLY positive links
+    # DiseaseB has ONLY local positive links (NO global_links)
     links_b <- data.frame(
         taxon = c("Taxon_1", "Taxon_2"),
         pathway = c("Pathway_1", "Pathway_1"),
@@ -95,6 +99,11 @@ test_that("plot_interaction_sankey validates input object class and parameters",
         plot_interaction_sankey(interactions, disease = "DiseaseA", direction = "invalid_dir")
     )
 
+    # Invalid significance parameter (match.arg handling)
+    expect_error(
+        plot_interaction_sankey(interactions, disease = "DiseaseA", significance = "invalid_sig")
+    )
+
     # Disease not present in interactions object
     expect_error(
         plot_interaction_sankey(interactions, disease = "NonExistentDisease"),
@@ -112,6 +121,30 @@ test_that("plot_interaction_sankey validates input object class and parameters",
         plot_interaction_sankey(interactions, disease = "DiseaseA", top_n_per_pathway = 0),
         "'top_n_per_pathway' must be a positive integer"
     )
+})
+
+test_that("plot_interaction_sankey supports global FDR interaction set selection", {
+    skip_if_not_installed("networkD3")
+    interactions <- make_mock_sankey_interactions()
+
+    # Error when significance = "global" but global_links is missing
+    expect_error(
+        plot_interaction_sankey(interactions, disease = "Disease.Sanitized", significance = "global"),
+        "Global interaction results are unavailable. Run compute_global_fdr() first or use significance = 'local'.",
+        fixed = TRUE
+    )
+
+    # Successfully plots global_links when available
+    widgets_global <- plot_interaction_sankey(
+        interactions,
+        disease = "DiseaseA",
+        significance = "global",
+        direction = "both"
+    )
+
+    expect_type(widgets_global, "list")
+    expect_equal(nrow(widgets_global$positive$x$links), 1)
+    expect_equal(nrow(widgets_global$negative$x$links), 1)
 })
 
 test_that("plot_interaction_sankey handles empty link tables and missing directions", {

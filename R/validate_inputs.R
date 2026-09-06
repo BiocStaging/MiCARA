@@ -314,31 +314,7 @@ validate_inputs <- function(
     metadata <- metadata[match(keep_sample_ids, metadata$sample_id), , drop = FALSE]
 
     ## ================================================================
-    ## 6. Zero-Sum Filtering
-    ## ================================================================
-    taxa_zero_rows <- rowSums(taxa) == 0
-    if (any(taxa_zero_rows)) {
-        if (verbose) warning(sprintf("Removing %d all-zero taxa feature(s).", sum(taxa_zero_rows)), call. = FALSE)
-        taxa <- taxa[!taxa_zero_rows, , drop = FALSE]
-    }
-
-    path_zero_rows <- rowSums(pathways) == 0
-    if (any(path_zero_rows)) {
-        if (verbose) warning(sprintf("Removing %d all-zero pathway feature(s).", sum(path_zero_rows)), call. = FALSE)
-        pathways <- pathways[!path_zero_rows, , drop = FALSE]
-    }
-
-    valid_samples <- (colSums(taxa) > 0) & (colSums(pathways) > 0)
-    if (any(!valid_samples)) {
-        dropped_ids <- colnames(taxa)[!valid_samples]
-        if (verbose) warning(sprintf("Removing %d sample(s) with depth < 1 reads: %s", sum(!valid_samples), paste(dropped_ids, collapse = ", ")), call. = FALSE)
-        taxa <- taxa[, valid_samples, drop = FALSE]
-        pathways <- pathways[, valid_samples, drop = FALSE]
-        metadata <- metadata[match(colnames(taxa), metadata$sample_id), , drop = FALSE]
-    }
-
-    ## ================================================================
-    ## 7. Case-Insensitive Covariate / Confounder Assessment
+    ## 6. Case-Insensitive Covariate / Confounder Assessment
     ## ================================================================
     recognised_covariates <- c("study_name", "age", "age_category", "gender", "sex", "bmi", "body_site", "site")
     meta_cols <- names(metadata)
@@ -356,7 +332,7 @@ validate_inputs <- function(
     }
 
     ## ================================================================
-    ## 8. Abundance Scale Detection & Re-construction
+    ## 7. Abundance Scale Detection & Re-construction
     ## ================================================================
     detect_scale <- function(mat) {
         if (is.data.frame(mat)) {
@@ -402,10 +378,41 @@ validate_inputs <- function(
         stop("Unrecognised abundance scale. Unable to determine scale.", call. = FALSE)
     }
 
+    ## Remove samples with zero recorded sequencing depth
+    if ("number_reads" %in% names(metadata) &&
+        is.numeric(metadata$number_reads)) {
+        zero_depth <- !is.na(metadata$number_reads) &
+            metadata$number_reads <= 0
+
+        if (any(zero_depth)) {
+            dropped_ids <- metadata$sample_id[zero_depth]
+
+            if (verbose) {
+                warning(
+                    "Removing ",
+                    sum(zero_depth),
+                    " sample(s) with zero sequencing depth: ",
+                    paste(dropped_ids, collapse = ", "),
+                    call. = FALSE
+                )
+            }
+
+            keep <- !zero_depth
+
+            taxa <- taxa[, keep, drop = FALSE]
+            pathways <- pathways[, keep, drop = FALSE]
+            metadata <- metadata[keep, , drop = FALSE]
+        }
+    }
     taxa_scale <- detect_scale(taxa)
     pathways_scale <- detect_scale(pathways)
 
-    has_reads <- "number_reads" %in% names(metadata) && !all(is.na(metadata$number_reads)) && is.numeric(metadata$number_reads)
+    has_reads <- (
+        "number_reads" %in% names(metadata) &&
+            is.numeric(metadata$number_reads) &&
+            all(is.finite(metadata$number_reads)) &&
+            all(metadata$number_reads >= 0)
+    )
 
     reconstruct_counts <- function(mat, scale, sample_reads) {
         if (scale == "counts") {
@@ -432,6 +439,80 @@ validate_inputs <- function(
 
     final_taxa_scale <- if (has_reads && taxa_scale %in% c("percentage", "proportion")) "counts" else taxa_scale
     final_pathways_scale <- if (has_reads && pathways_scale %in% c("percentage", "proportion")) "counts" else pathways_scale
+
+    ## ================================================================
+    ## 8. Post-reconstruction Zero-Sum Filtering
+    ## ================================================================
+    ## ================================================================
+    ## 8. Post-reconstruction Zero-Sum Filtering
+    ## ================================================================
+
+    taxa_zero_rows <- rowSums(taxa) == 0
+
+    if (any(taxa_zero_rows)) {
+        if (verbose) {
+            warning(
+                sprintf(
+                    "Removing %d all-zero taxa feature(s).",
+                    sum(taxa_zero_rows)
+                ),
+                call. = FALSE
+            )
+        }
+
+        taxa <- taxa[!taxa_zero_rows, , drop = FALSE]
+    }
+
+    path_zero_rows <- rowSums(pathways) == 0
+
+    if (any(path_zero_rows)) {
+        if (verbose) {
+            warning(
+                sprintf(
+                    "Removing %d all-zero pathway feature(s).",
+                    sum(path_zero_rows)
+                ),
+                call. = FALSE
+            )
+        }
+
+        pathways <- pathways[!path_zero_rows, , drop = FALSE]
+    }
+
+    valid_samples <- (
+        colSums(taxa) > 0 &
+            colSums(pathways) > 0
+    )
+
+    if (any(!valid_samples)) {
+        dropped_ids <- colnames(taxa)[!valid_samples]
+
+        if (verbose) {
+            warning(
+                sprintf(
+                    paste0(
+                        "Removing %d sample(s) with zero total abundance ",
+                        "after count reconstruction: %s"
+                    ),
+                    sum(!valid_samples),
+                    paste(dropped_ids, collapse = ", ")
+                ),
+                call. = FALSE
+            )
+        }
+
+        taxa <- taxa[, valid_samples, drop = FALSE]
+
+        pathways <- pathways[, valid_samples, drop = FALSE]
+
+        metadata <- metadata[
+            match(
+                colnames(taxa),
+                metadata$sample_id
+            ), ,
+            drop = FALSE
+        ]
+    }
 
     ## ================================================================
     ## 9. QC Report Output

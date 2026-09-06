@@ -8,10 +8,11 @@ plot_interaction_sankey(
   interactions,
   disease,
   direction = c("both", "positive", "negative"),
+  significance = c("local", "global"),
   top_n_per_pathway = NULL,
   node_colors = c(up = "#2196F3", down = "#F44336", unchanged = "grey70", stable =
     "gray70"),
-  font_size = 12,
+  font_size = 18,
   node_width = 35,
   save_path = NULL
 )
@@ -26,6 +27,11 @@ plot_interaction_sankey(
 \item{direction}{One of \code{"both"}, \code{"positive"}, or
 \code{"negative"} (default \code{"both"}). When \code{"both"}, returns
 and/or saves separate diagrams for positive and negative links.}
+
+\item{significance}{Character string specifying which interaction set
+to plot. \code{"local"} uses the disease-specific significant links
+stored in \code{$links}; \code{"global"} uses the globally corrected
+links stored in \code{$global_links}. Defaults to \code{"local"}.}
 
 \item{top_n_per_pathway}{Optional integer; if supplied, keeps only
 the \code{top_n_per_pathway} strongest links (by \code{abs(rho)})
@@ -63,6 +69,10 @@ correlations for a single disease, as computed by
 correlations are rendered as separate diagrams (matching the two-panel
 "Figure A/B" convention used throughout this package's companion analyses)
 to preserve clear biological interpretation.
+}
+\details{
+When \code{significance = "global"}, the input object must have been
+processed by \code{\link{compute_global_fdr}}.
 }
 \examples{
 set.seed(123)

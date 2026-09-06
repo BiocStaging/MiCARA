@@ -19,6 +19,10 @@
 #' selection. Canonical taxon and pathway identifiers are preserved; labels
 #' should be cleaned only in downstream plotting functions.
 #'
+#' #' For analyses requiring correction across the pooled interaction search
+#' space, the returned object can optionally be passed to
+#' \code{\link{compute_global_fdr}}.
+#'
 #' @param micara_obj A \code{micara_input} or \code{micara_imputed} object.
 #' @param diffab_obj Optional combined \code{micara_diffab_list} object with
 #'   elements \code{$taxa} and \code{$pathways}. A single
@@ -78,6 +82,8 @@
 #'   Access them with \code{attr(x, "summary")} and
 #'   \code{attr(x, "settings")}.
 #'
+#' @seealso \code{\link{compute_global_fdr}}
+#'
 #' @export
 #'
 #' @examples
@@ -133,21 +139,19 @@
 #'     verbose = FALSE
 #' )
 #'
-compute_residualCLR_correlations <- function(
-      micara_obj,
-      diffab_obj = NULL,
-      taxa_diffab = NULL,
-      pathway_diffab = NULL,
-      diseases = NULL,
-      covariates = NULL,
-      q_cutoff = 0.05,
-      r_cutoff = 0.2,
-      pseudocount = NULL,
-      min_samples_per_disease = 10L,
-      min_residual_df = 3L,
-      retain_all_pairs = TRUE,
-      verbose = TRUE
-) {
+compute_residualCLR_correlations <- function(micara_obj,
+                                             diffab_obj = NULL,
+                                             taxa_diffab = NULL,
+                                             pathway_diffab = NULL,
+                                             diseases = NULL,
+                                             covariates = NULL,
+                                             q_cutoff = 0.05,
+                                             r_cutoff = 0.2,
+                                             pseudocount = NULL,
+                                             min_samples_per_disease = 10L,
+                                             min_residual_df = 3L,
+                                             retain_all_pairs = TRUE,
+                                             verbose = TRUE) {
     ## ------------------------------------------------------------------
     ## 1. Validate inputs and resolve differential-abundance objects
     ## ------------------------------------------------------------------

@@ -121,7 +121,7 @@ if (length(analyzed_cohorts) > 0) {
 
 Use `plot_interaction_sankey()` to display interactive D3 networks connecting significant taxa to functional pathways:
 
-```{r plot-sankey, eval=FALSE}
+```{r plot-sankey, eval= TRUE}
 # Interactive visualization
 plot_interaction_sankey(
     interactions      = interactions,
@@ -142,6 +142,23 @@ plot_interaction_sankey(
     save_path         = "results/sankey_network"
 )
 ```
+
+## Optional: global interaction correction
+
+```{r global interaction correction, eval = TRUE}
+# Apply global FDR correction across all disease cohorts
+interactions_global <- compute_global_fdr(interactions)
+
+# Plot Sankey network using global significance cutoffs
+plot_interaction_sankey(
+    interactions      = interactions_global,
+    disease           = names(interactions_global)[1],
+    significance      = "global",
+    direction         = "both",
+    top_n_per_pathway = 5
+)
+```
+
 
 ```{r sessionInfo}
 sessionInfo()

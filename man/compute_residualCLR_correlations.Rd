@@ -113,6 +113,10 @@ differentially abundant taxon and pathway, the function:
 CLR is calculated on the full feature set before disease-specific feature
 selection. Canonical taxon and pathway identifiers are preserved; labels
 should be cleaned only in downstream plotting functions.
+
+#' For analyses requiring correction across the pooled interaction search
+space, the returned object can optionally be passed to
+\code{\link{compute_global_fdr}}.
 }
 \examples{
 set.seed(123)
@@ -167,4 +171,7 @@ corr_res <- compute_residualCLR_correlations(
     verbose = FALSE
 )
 
+}
+\seealso{
+\code{\link{compute_global_fdr}}
 }

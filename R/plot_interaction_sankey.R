@@ -7,6 +7,9 @@
 #' "Figure A/B" convention used throughout this package's companion analyses)
 #' to preserve clear biological interpretation.
 #'
+#' @details
+#'   When \code{significance = "global"}, the input object must have been
+#'   processed by \code{\link{compute_global_fdr}}.
 #' @param interactions A \code{micara_interactions} object from
 #'   \code{\link{compute_residualCLR_correlations}}.
 #' @param disease Name of the disease to plot (must be present in
@@ -14,6 +17,10 @@
 #' @param direction One of \code{"both"}, \code{"positive"}, or
 #'   \code{"negative"} (default \code{"both"}). When \code{"both"}, returns
 #'   and/or saves separate diagrams for positive and negative links.
+#' @param significance Character string specifying which interaction set
+#'   to plot. \code{"local"} uses the disease-specific significant links
+#'   stored in \code{$links}; \code{"global"} uses the globally corrected
+#'   links stored in \code{$global_links}. Defaults to \code{"local"}.
 #' @param top_n_per_pathway Optional integer; if supplied, keeps only
 #'   the \code{top_n_per_pathway} strongest links (by \code{abs(rho)})
 #'   per pathway node, for readability in densely-connected diagrams.
@@ -100,13 +107,15 @@ plot_interaction_sankey <- function(
   interactions,
   disease,
   direction = c("both", "positive", "negative"),
+  significance = c("local", "global"),
   top_n_per_pathway = NULL,
   node_colors = c(up = "#2196F3", down = "#F44336", unchanged = "grey70", stable = "gray70"),
-  font_size = 12,
+  font_size = 18,
   node_width = 35,
   save_path = NULL
 ) {
     direction <- match.arg(direction)
+    significance <- match.arg(significance)
 
     if (!inherits(interactions, "micara_interactions")) {
         stop("'interactions' must be the output of compute_residualCLR_correlations().")
@@ -140,7 +149,20 @@ plot_interaction_sankey <- function(
     }
 
     disease_data <- interactions[[disease]]
-    all_links <- disease_data$links
+
+    # Extract target interaction set according to significance scope
+    if (significance == "global") {
+        if (is.null(disease_data$global_links)) {
+            stop(
+                "Global interaction results are unavailable. ",
+                "Run compute_global_fdr() first or use significance = 'local'.",
+                call. = FALSE
+            )
+        }
+        all_links <- disease_data$global_links
+    } else {
+        all_links <- disease_data$links
+    }
 
     if (is.null(all_links) || nrow(all_links) == 0L) {
         stop(disease, " has no links passing the significance/strength cutoffs; nothing to plot.")
@@ -215,6 +237,18 @@ plot_interaction_sankey <- function(
             fontSize    = font_size,
             nodeWidth   = node_width,
             iterations  = 0
+        )
+
+        widget <- htmlwidgets::onRender(
+            widget,
+            sprintf('
+      function(el, x) {
+        d3.selectAll(".node text")
+          .style("font-weight", "bold")
+          .style("font-size", "%dpx")
+          .style("fill", "#000000");
+      }
+    ', font_size)
         )
 
         # Save output files if path provided
