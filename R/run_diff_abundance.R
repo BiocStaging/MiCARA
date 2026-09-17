@@ -116,7 +116,7 @@ run_diff_abundance <- function(
   rand_effect = "study_name",
   reference_level = NULL, # Set default to NULL for dynamic matching
   p_adj_method = "BH",
-  prv_cut = 0.10, # Set to 10% prevalence to prevent infinite fitting loops
+  prv_cut = 0.10, 
   alpha = 0.05,
   pairwise = FALSE,
   struc_zero = TRUE,
@@ -452,6 +452,32 @@ run_diff_abundance <- function(
         )
 
         res <- fit$res
+        
+        cat("\n--- ORIGINAL PATHWAY IDS ---\n")
+        print(head(rownames(feature_mat), 10))
+        
+        cat("\n--- PHYLOSEQ TAXA IDS ---\n")
+        print(head(phyloseq::taxa_names(ps), 10))
+        
+        cat("\n--- ANCOMBC res$taxon ---\n")
+        if ("taxon" %in% names(res)) {
+            print(head(res$taxon, 10))
+        } else {
+            print("No 'taxon' column")
+        }
+        
+        cat("\n--- ANCOMBC rownames(res) ---\n")
+        print(head(rownames(res), 10))
+        
+        if ("taxon" %in% names(res)) {
+            cat("\nOriginal vs res$taxon:\n")
+            print(
+                data.frame(
+                    original = head(phyloseq::taxa_names(ps), 10),
+                    ancombc = head(res$taxon, 10)
+                )
+            )
+        }
 
         ## Extract Significant Results into Tidy Long Format
         flag_prefix <- if (use_robust) "diff_robust_disease" else "diff_disease"
