@@ -128,5 +128,4 @@ corr_res <- compute_residualCLR_correlations(
 )
 
 plot_interaction_sankey(corr_res, disease = "Disease")
-
 }

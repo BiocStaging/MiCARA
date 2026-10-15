@@ -40,7 +40,7 @@
 #'   \code{mids} object, or \code{NULL} if skipped), \code{imputed_vars}, and
 #'   \code{imputation_performed} (logical; \code{FALSE} if no missingness was
 #'   present or imputation was skipped).
-#'
+#' @importFrom mice mice complete
 #' @export
 #'
 #' @examples

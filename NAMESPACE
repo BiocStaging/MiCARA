@@ -9,6 +9,17 @@ export(prep_metaphlan_taxa)
 export(run_diff_abundance)
 export(validate_inputs)
 importFrom(ANCOMBC,ancombc2)
+importFrom(Hmisc,rcorr)
+importFrom(htmlwidgets,
+  JS,
+  onRender,
+  saveWidget
+)
+importFrom(mice,
+  complete,
+  mice
+)
+importFrom(networkD3,sankeyNetwork)
 importFrom(phyloseq,
   otu_table,
   phyloseq,

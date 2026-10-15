@@ -45,7 +45,9 @@
 #'   \code{"negative"}), or a named list of two \code{networkD3} htmlwidget
 #'   objects (\code{$positive} and \code{$negative}) when \code{direction = "both"}
 #'   (returned invisibly if \code{save_path} is supplied).
-#'
+#'   
+#' @importFrom networkD3 sankeyNetwork
+#' @importFrom htmlwidgets JS onRender saveWidget
 #' @export
 #'
 #' @examples
@@ -102,7 +104,6 @@
 #' )
 #'
 #' plot_interaction_sankey(corr_res, disease = "Disease")
-#'
 plot_interaction_sankey <- function(
   interactions,
   disease,

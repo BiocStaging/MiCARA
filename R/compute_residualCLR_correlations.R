@@ -83,7 +83,7 @@
 #'   \code{attr(x, "settings")}.
 #'
 #' @seealso \code{\link{compute_global_fdr}}
-#'
+#' @importFrom Hmisc rcorr
 #' @export
 #'
 #' @examples
