@@ -164,14 +164,7 @@ compute_residualCLR_correlations <- function(micara_obj,
             call. = FALSE
         )
     }
-    # Hmisc availability
-    if (!requireNamespace("Hmisc", quietly = TRUE)) {
-        stop(
-            "Package 'Hmisc' is required. Install it before running ",
-            "compute_residual_correlations().",
-            call. = FALSE
-        )
-    }
+    
     # Validates that thresholds fall within acceptable mathematical ranges
     .check_probability(q_cutoff, "q_cutoff", allow_zero = FALSE)
     .check_probability(r_cutoff, "r_cutoff", allow_zero = TRUE)

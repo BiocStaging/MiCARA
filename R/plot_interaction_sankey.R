@@ -144,9 +144,6 @@ plot_interaction_sankey <- function(
         )
     }
 
-    if (!requireNamespace("networkD3", quietly = TRUE)) {
-        stop("Package 'networkD3' is required for plot_interaction_sankey() but is not installed.")
-    }
 
     disease_data <- interactions[[disease]]
 
@@ -253,9 +250,6 @@ plot_interaction_sankey <- function(
 
         # Save output files if path provided
         if (!is.null(save_path)) {
-            if (!requireNamespace("htmlwidgets", quietly = TRUE)) {
-                stop("Package 'htmlwidgets' is required to use save_path but is not installed.", call. = FALSE)
-            }
 
             base_path <- sub("\\.(html|png)$", "", save_path, ignore.case = TRUE)
             out_prefix <- if (file_suffix != "") paste0(base_path, "_", file_suffix) else base_path

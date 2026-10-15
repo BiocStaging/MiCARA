@@ -216,9 +216,7 @@ impute_metadata <- function(micara_obj,
     ## 4. Build the MICE input frame
     ## ------------------------------------------------------------------
 
-    if (!requireNamespace("mice", quietly = TRUE)) {
-        stop("Package 'mice' is required for impute_metadata() but is not installed.")
-    }
+    
 
     mice_vars <- unique(c(impute_vars, auxiliary_predictors))
     mice_df <- metadata[, mice_vars, drop = FALSE]

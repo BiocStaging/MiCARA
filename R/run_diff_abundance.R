@@ -186,12 +186,6 @@ run_diff_abundance <- function(
         )
     }
 
-    if (!requireNamespace("ANCOMBC", quietly = TRUE)) {
-        stop("Package 'ANCOMBC' is required for run_diff_abundance() but is not installed.")
-    }
-    if (!requireNamespace("phyloseq", quietly = TRUE)) {
-        stop("Package 'phyloseq' is required for run_diff_abundance() but is not installed.")
-    }
 
     ## Parse requested feature types
     # Parses options like "taxa", "pathways", or "both".
