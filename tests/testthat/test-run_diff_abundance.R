@@ -1,5 +1,4 @@
 skip_if_not_installed("microbiome")
-skip_if_not_installed("ANCOMBC")
 
 
 test_that("run_diff_abundance validates micara_obj class", {
@@ -77,8 +76,6 @@ test_that("run_diff_abundance warns and drops zero-variance fixed-effect covaria
 })
 
 test_that("run_diff_abundance successfully fits model for single feature type ('taxa')", {
-    skip_if_not_installed("ANCOMBC")
-    skip_if_not_installed("phyloseq")
 
     d <- make_test_data(abundance_scale = "counts")
     validated <- suppressWarnings(
@@ -105,8 +102,6 @@ test_that("run_diff_abundance successfully fits model for single feature type ('
 })
 
 test_that("run_diff_abundance runs across both feature types ('both')", {
-    skip_if_not_installed("ANCOMBC")
-    skip_if_not_installed("phyloseq")
 
     d <- make_test_data(abundance_scale = "counts")
     validated <- suppressWarnings(
@@ -129,8 +124,6 @@ test_that("run_diff_abundance runs across both feature types ('both')", {
 })
 
 test_that("run_diff_abundance sanitizes non-standard characters in disease labels", {
-    skip_if_not_installed("ANCOMBC")
-    skip_if_not_installed("phyloseq")
 
     d <- make_test_data(abundance_scale = "counts")
     d$metadata$disease <- ifelse(d$metadata$disease == "healthy", "Healthy Control", "T2D Stage-2")

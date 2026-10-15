@@ -75,7 +75,6 @@ test_that(".to_js_array creates valid JavaScript array strings", {
 })
 
 test_that("plot_interaction_sankey validates input object class and parameters", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Invalid S3 class
@@ -124,7 +123,6 @@ test_that("plot_interaction_sankey validates input object class and parameters",
 })
 
 test_that("plot_interaction_sankey supports global FDR interaction set selection", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Error when significance = "global" but global_links is missing
@@ -148,7 +146,6 @@ test_that("plot_interaction_sankey supports global FDR interaction set selection
 })
 
 test_that("plot_interaction_sankey handles empty link tables and missing directions", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Disease has zero total links
@@ -165,7 +162,6 @@ test_that("plot_interaction_sankey handles empty link tables and missing directi
 })
 
 test_that("plot_interaction_sankey resolves non-syntactic or sanitized disease names", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Requesting "Disease-Sanitized" resolves to "Disease.Sanitized" (returns list containing positive widget)
@@ -176,7 +172,6 @@ test_that("plot_interaction_sankey resolves non-syntactic or sanitized disease n
 })
 
 test_that("plot_interaction_sankey filters by direction accurately", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Both directions (default) returns a list with positive and negative widgets
@@ -198,7 +193,6 @@ test_that("plot_interaction_sankey filters by direction accurately", {
 })
 
 test_that("plot_interaction_sankey trims links using top_n_per_pathway", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     # Top 1 per pathway across split sankey (1 positive, 1 negative = 2 total across list)
@@ -224,7 +218,6 @@ test_that("plot_interaction_sankey trims links using top_n_per_pathway", {
 })
 
 test_that("plot_interaction_sankey renders networkD3 widget and handles missing node_directions", {
-    skip_if_not_installed("networkD3")
     interactions <- make_mock_sankey_interactions()
 
     custom_colors <- c(up = "blue", down = "red", unchanged = "grey", stable = "grey")
@@ -248,8 +241,6 @@ test_that("plot_interaction_sankey renders networkD3 widget and handles missing 
 })
 
 test_that("plot_interaction_sankey exports files and strips duplicate extension cleanly", {
-    skip_if_not_installed("networkD3")
-    skip_if_not_installed("htmlwidgets")
     interactions <- make_mock_sankey_interactions()
 
     temp_prefix <- tempfile("sankey_test_")

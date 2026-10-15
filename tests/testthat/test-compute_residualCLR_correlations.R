@@ -273,7 +273,6 @@ test_that("compute_residualCLR_correlations evaluates disease scope and warnings
 
 # 8. End-to-End Interaction Computation
 test_that("compute_residualCLR_correlations computes interactions successfully", {
-    skip_if_not_installed("Hmisc")
     inputs <- make_mock_cor_inputs(n_samples = 30)
 
     res <- compute_residualCLR_correlations(
@@ -307,7 +306,6 @@ test_that("compute_residualCLR_correlations computes interactions successfully",
 
 # 9. Covariate Residualization & Degree-of-Freedom Guardrails
 test_that("compute_residualCLR_correlations handles zero-variance covariates and degrees of freedom", {
-    skip_if_not_installed("Hmisc")
     inputs <- make_mock_cor_inputs()
 
     # Add zero variance covariate
@@ -339,7 +337,6 @@ test_that("compute_residualCLR_correlations handles zero-variance covariates and
 
 # 10. Optional pair retension
 test_that("compute_residualCLR_correlations respects retain_all_pairs = FALSE", {
-    skip_if_not_installed("Hmisc")
     inputs <- make_mock_cor_inputs()
 
     res <- compute_residualCLR_correlations(
