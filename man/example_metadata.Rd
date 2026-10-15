@@ -8,7 +8,7 @@
 A data frame with 30 rows and 6 columns:
 \describe{
 \item{sample_id}{Unique sample identifier}
-\item{disease}{Disease group assignment ("Control" or "Case")}
+\item{disease}{Disease group assignment ("healthy" or "Case")}
 \item{age_category}{Age cohort ("Adult" or "Senior")}
 \item{BMI}{Body Mass Index}
 \item{gender}{Sex of the participant}

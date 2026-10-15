@@ -3,9 +3,9 @@
 \docType{data}
 \name{example_taxa}
 \alias{example_taxa}
-\title{Synthetic Example Taxa Abundance Matrix}
+\title{Synthetic Example Taxa Abundance Table}
 \format{
-A numeric matrix with 20 rows (taxa) and 30 columns (samples).
+A data frame of integer counts with 20 rows (taxa, \code{Taxon_1} to \code{Taxon_20}) and 30 columns (samples, \code{Sample_1} to \code{Sample_30}).
 }
 \source{
 Simulated synthetic data for MiCARA testing and demonstration.
@@ -14,6 +14,6 @@ Simulated synthetic data for MiCARA testing and demonstration.
 data(example_taxa)
 }
 \description{
-A simulated count matrix representing bacterial taxonomic abundances across samples.
+A simulated table of bacterial taxon counts across samples.
 }
 \keyword{datasets}

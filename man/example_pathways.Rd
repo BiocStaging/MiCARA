@@ -3,9 +3,9 @@
 \docType{data}
 \name{example_pathways}
 \alias{example_pathways}
-\title{Synthetic Example Functional Pathways Matrix}
+\title{Synthetic Example Functional Pathways Table}
 \format{
-A numeric matrix with 10 rows (pathways) and 30 columns (samples).
+A data frame of integer counts with 10 rows (pathways, \code{Pathway_1} to \code{Pathway_10}) and 30 columns (samples, \code{Sample_1} to \code{Sample_30}).
 }
 \source{
 Simulated synthetic data for MiCARA testing and demonstration.
@@ -14,6 +14,6 @@ Simulated synthetic data for MiCARA testing and demonstration.
 data(example_pathways)
 }
 \description{
-A simulated count matrix representing functional pathway abundances across samples.
+A simulated table of functional pathway counts across samples.
 }
 \keyword{datasets}
