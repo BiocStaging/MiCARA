@@ -52,7 +52,7 @@ consistent with \code{node_directions$group} from
 \item{save_path}{Optional file path (with or without extension) to save the
 diagram(s). If supplied, saves interactive \code{.html} (via
 \code{htmlwidgets::saveWidget()}) and static \code{.png} (via
-\code{webshot2::webshot()} or \code{webshot::webshot()}) files. When
+\code{webshot2::webshot()}) files. When
 \code{direction = "both"}, suffixes \code{_positive} and \code{_negative}
 are automatically appended to the base path. Default \code{NULL}.}
 }

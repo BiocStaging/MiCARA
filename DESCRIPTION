@@ -32,7 +32,6 @@ Suggests:
     microbiome,
     rmarkdown,
     testthat (>= 3.0.0),
-    webshot,
     webshot2
 VignetteBuilder: 
     knitr

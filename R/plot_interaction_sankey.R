@@ -37,7 +37,7 @@
 #' @param save_path Optional file path (with or without extension) to save the
 #'   diagram(s). If supplied, saves interactive \code{.html} (via
 #'   \code{htmlwidgets::saveWidget()}) and static \code{.png} (via
-#'   \code{webshot2::webshot()} or \code{webshot::webshot()}) files. When
+#'   \code{webshot2::webshot()}) files. When
 #'   \code{direction = "both"}, suffixes \code{_positive} and \code{_negative}
 #'   are automatically appended to the base path. Default \code{NULL}.
 #'
@@ -258,18 +258,13 @@ plot_interaction_sankey <- function(
             html_path <- paste0(out_prefix, ".html")
             htmlwidgets::saveWidget(widget, html_path, selfcontained = TRUE)
 
-            has_webshot2 <- requireNamespace("webshot2", quietly = TRUE)
-            has_webshot <- requireNamespace("webshot", quietly = TRUE)
-
             tryCatch(
                 {
-                    if (has_webshot2) {
+                    if (requireNamespace("webshot2", quietly = TRUE)) {
                         webshot2::webshot(html_path, paste0(out_prefix, ".png"))
-                    } else if (has_webshot) {
-                        webshot::webshot(html_path, paste0(out_prefix, ".png"), delay = 2)
                     } else {
                         warning(
-                            "Neither 'webshot2' nor 'webshot' is installed; only the .html file was saved.",
+                            "Package 'webshot2' is not installed; only the .html file was saved.",
                             call. = FALSE
                         )
                     }
