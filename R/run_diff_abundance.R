@@ -453,31 +453,6 @@ run_diff_abundance <- function(
 
         res <- fit$res
         
-        cat("\n--- ORIGINAL PATHWAY IDS ---\n")
-        print(head(rownames(feature_mat), 10))
-        
-        cat("\n--- PHYLOSEQ TAXA IDS ---\n")
-        print(head(phyloseq::taxa_names(ps), 10))
-        
-        cat("\n--- ANCOMBC res$taxon ---\n")
-        if ("taxon" %in% names(res)) {
-            print(head(res$taxon, 10))
-        } else {
-            print("No 'taxon' column")
-        }
-        
-        cat("\n--- ANCOMBC rownames(res) ---\n")
-        print(head(rownames(res), 10))
-        
-        if ("taxon" %in% names(res)) {
-            cat("\nOriginal vs res$taxon:\n")
-            print(
-                data.frame(
-                    original = head(phyloseq::taxa_names(ps), 10),
-                    ancombc = head(res$taxon, 10)
-                )
-            )
-        }
 
         ## Extract Significant Results into Tidy Long Format
         flag_prefix <- if (use_robust) "diff_robust_disease" else "diff_disease"
