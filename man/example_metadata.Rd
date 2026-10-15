@@ -16,7 +16,7 @@ A data frame with 30 rows and 6 columns:
 }
 }
 \source{
-Simulated synthetic data for MiCARA testing and demonstration.
+Simulated with \code{inst/scripts/generate_example_data.R} (seed 123).
 }
 \usage{
 data(example_metadata)

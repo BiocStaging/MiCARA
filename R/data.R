@@ -2,14 +2,14 @@
 #'
 #' A simulated table of bacterial taxon counts across samples.
 #' @format A data frame of integer counts with 20 rows (taxa, \code{Taxon_1} to \code{Taxon_20}) and 30 columns (samples, \code{Sample_1} to \code{Sample_30}).
-#' @source Simulated synthetic data for MiCARA testing and demonstration.
+#' @source Simulated with \code{inst/scripts/generate_example_data.R} (seed 123).
 "example_taxa"
 
 #' Synthetic Example Functional Pathways Table
 #'
 #' A simulated table of functional pathway counts across samples.
 #' @format A data frame of integer counts with 10 rows (pathways, \code{Pathway_1} to \code{Pathway_10}) and 30 columns (samples, \code{Sample_1} to \code{Sample_30}).
-#' @source Simulated synthetic data for MiCARA testing and demonstration.
+#' @source Simulated with \code{inst/scripts/generate_example_data.R} (seed 123).
 "example_pathways"
 
 #' Synthetic Example Sample Metadata
@@ -24,5 +24,5 @@
 #'   \item{gender}{Sex of the participant}
 #'   \item{study_name}{Cohort study origin}
 #' }
-#' @source Simulated synthetic data for MiCARA testing and demonstration.
+#' @source Simulated with \code{inst/scripts/generate_example_data.R} (seed 123).
 "example_metadata"

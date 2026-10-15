@@ -2,7 +2,6 @@
 ^README\.Rmd$
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^data-raw$
 ^[^/]*\.html$
 ^Meta$
 ^analysis_output$

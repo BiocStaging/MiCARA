@@ -8,7 +8,7 @@
 A data frame of integer counts with 10 rows (pathways, \code{Pathway_1} to \code{Pathway_10}) and 30 columns (samples, \code{Sample_1} to \code{Sample_30}).
 }
 \source{
-Simulated synthetic data for MiCARA testing and demonstration.
+Simulated with \code{inst/scripts/generate_example_data.R} (seed 123).
 }
 \usage{
 data(example_pathways)
