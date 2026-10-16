@@ -50,15 +50,21 @@ MiCARA workflow.
 
 ## Installation
 
-You can install `MiCARA` directly from GitHub using `pak`:
+Once accepted, `MiCARA` can be installed from Bioconductor:
 
 ``` r
-# Install pak if not already available
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+BiocManager::install("MiCARA")
+```
+
+The development version can be installed from GitHub:
+
+``` r
 if (!requireNamespace("pak", quietly = TRUE)) {
     install.packages("pak")
 }
-
-# Install MiCARA
 pak::pak("BushnaqSafa/MiCARA")
 ```
 
@@ -69,8 +75,8 @@ library(MiCARA)
 
 # 1. Validate & filter inputs
 obj <- validate_inputs(
-    taxa_mat = taxa_mat,
-    pathway_mat = pathway_mat,
+    taxa = taxa,
+    pathways = pathways,
     metadata = metadata,
     disease_col = "disease"
 )
