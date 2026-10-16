@@ -143,9 +143,10 @@ if (length(analyzed_cohorts) > 0) {
 
 Use `plot_interaction_sankey()` to display interactive D3 networks connecting significant taxa to functional pathways:
 
-```{r plot-sankey, eval= TRUE}
-# Interactive visualization
-plot_interaction_sankey(
+```{r plot-sankey, eval = TRUE}
+# Interactive visualization. direction = "both" returns a list with one
+# diagram per direction ($positive and/or $negative); print an element to show it.
+sankeys <- plot_interaction_sankey(
     interactions      = interactions,
     disease           = names(interactions)[1], # Target disease cohort (e.g., "UC")
     direction         = "both", # Options: "positive", "negative", or "both"
@@ -153,14 +154,17 @@ plot_interaction_sankey(
     font_size         = 12, # Text label size in pixels
     node_width        = 35 # Width of Sankey block nodes
 )
+names(sankeys)
+sankeys$positive
 
 # Optional: save interactive HTML and static PNG files. They go to a temporary folder.
-plot_interaction_sankey(
+invisible(plot_interaction_sankey(
     interactions      = interactions,
     disease           = names(interactions)[1],
     save_path         = file.path(tempdir(), "sankey_network")
-)
+))
 ```
+
 
 ## Optional: global interaction correction
 
@@ -169,13 +173,15 @@ plot_interaction_sankey(
 interactions_global <- compute_global_fdr(interactions)
 
 # Plot Sankey network using global significance cutoffs
-plot_interaction_sankey(
+sankeys_global <- plot_interaction_sankey(
     interactions      = interactions_global,
     disease           = names(interactions_global)[1],
     significance      = "global",
     direction         = "both",
     top_n_per_pathway = 5
 )
+
+sankeys_global$positive
 ```
 
 
