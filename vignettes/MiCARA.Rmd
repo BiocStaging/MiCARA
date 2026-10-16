@@ -154,14 +154,11 @@ plot_interaction_sankey(
     node_width        = 35 # Width of Sankey block nodes
 )
 
-# Optional: Save interactive HTML and static PNG exports
-# Create the results directory first
-dir.create("results", showWarnings = FALSE, recursive = TRUE)
-
+# Optional: save interactive HTML and static PNG files. They go to a temporary folder.
 plot_interaction_sankey(
     interactions      = interactions,
     disease           = names(interactions)[1],
-    save_path         = "results/sankey_network"
+    save_path         = file.path(tempdir(), "sankey_network")
 )
 ```
 
