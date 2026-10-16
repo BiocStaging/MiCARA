@@ -28,6 +28,7 @@ Imports:
     stats,
     utils
 Suggests: 
+    BiocStyle,
     knitr,
     microbiome,
     rmarkdown,
