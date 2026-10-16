@@ -22,6 +22,19 @@ knitr::opts_chunk$set(
 )
 ```
 
+## Installation
+
+Once MiCARA is accepted, it can be installed from Bioconductor:
+
+```{r install, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+BiocManager::install("MiCARA")
+```
+
+Load the package:
+
 ```{r setup}
 library(MiCARA)
 ```
