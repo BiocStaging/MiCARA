@@ -10,7 +10,7 @@ test_that("impute_metadata validates S3 input class", {
 
 test_that("impute_metadata exits early when no variables contain missing values", {
     d <- make_test_data()
-    validated <- suppressWarnings(
+    validated <- expect_scale_warnings(
         validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
     if (is.null(validated$confounders)) validated$confounders <- c("age", "gender", "BMI")
@@ -25,7 +25,7 @@ test_that("impute_metadata exits early when no variables contain missing values"
 
 test_that("impute_metadata blocks age_category as an imputation target", {
     d <- make_test_data()
-    validated <- suppressWarnings(
+    validated <- expect_scale_warnings(
         validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
 
@@ -37,7 +37,7 @@ test_that("impute_metadata blocks age_category as an imputation target", {
 
 test_that("impute_metadata throws an error if specified impute_vars do not exist", {
     d <- make_test_data()
-    validated <- suppressWarnings(
+    validated <- expect_scale_warnings(
         validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
 
@@ -51,7 +51,7 @@ test_that("impute_metadata throws an error if disease contains missing values", 
     d <- make_test_data(covariate_missing_frac = 0.2)
 
 
-    validated <- suppressWarnings(
+    validated <- expect_scale_warnings(
         validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
     if (is.null(validated$confounders)) validated$confounders <- c("age", "gender", "BMI")
@@ -69,7 +69,7 @@ test_that("impute_metadata executes MICE successfully and fills missing values",
     d <- make_test_data(covariate_missing_frac = 0.2)
     expect_true(any(is.na(d$metadata$BMI)))
 
-    validated <- suppressWarnings(
+    validated <- expect_scale_warnings(
         validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
     if (is.null(validated$confounders)) validated$confounders <- c("age", "gender", "BMI")

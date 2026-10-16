@@ -247,7 +247,7 @@ test_that("plot_interaction_sankey exports files and strips duplicate extension 
     temp_with_ext <- paste0(temp_prefix, ".html")
 
     # Test single-direction output export
-    res_pos <- suppressWarnings(
+    res_pos <- quiet_png_export(
         plot_interaction_sankey(
             interactions,
             disease = "DiseaseA",
@@ -262,7 +262,7 @@ test_that("plot_interaction_sankey exports files and strips duplicate extension 
     if (file.exists(temp_with_ext)) unlink(temp_with_ext)
 
     # Test split-direction output export (appends _positive / _negative suffixes)
-    res_both <- suppressWarnings(
+    res_both <- quiet_png_export(
         plot_interaction_sankey(
             interactions,
             disease = "DiseaseA",

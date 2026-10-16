@@ -10,9 +10,7 @@ test_that("run_diff_abundance validates micara_obj class", {
 
 test_that("run_diff_abundance validates feature_type parameter", {
     d <- make_test_data(abundance_scale = "counts")
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
     expect_error(
         run_diff_abundance(validated, feature_type = "invalid_feature", verbose = FALSE),
@@ -22,9 +20,7 @@ test_that("run_diff_abundance validates feature_type parameter", {
 
 test_that("run_diff_abundance throws error when reference_level is absent in disease", {
     d <- make_test_data(abundance_scale = "counts")
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
     expect_error(
         run_diff_abundance(validated, reference_level = "non_existent_group"),
@@ -35,9 +31,8 @@ test_that("run_diff_abundance throws error when reference_level is absent in dis
 
 test_that("run_diff_abundance issues warning when input abundance scale is not 'counts'", {
     d <- make_test_data(abundance_scale = "counts")
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
     # Force scale label to 'percentage' to test MiCARA warning trigger
     validated$abundance_scale$final$taxa <- "percentage"
 
@@ -58,9 +53,7 @@ test_that("run_diff_abundance warns and drops zero-variance fixed-effect covaria
     d <- make_test_data(abundance_scale = "counts")
     d$metadata$constant_cov <- 1 # zero variance column
 
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
     expect_warning(
         withCallingHandlers(
@@ -78,11 +71,9 @@ test_that("run_diff_abundance warns and drops zero-variance fixed-effect covaria
 test_that("run_diff_abundance successfully fits model for single feature type ('taxa')", {
 
     d <- make_test_data(abundance_scale = "counts")
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
-    res <- suppressWarnings(
+    res <- quiet_ancombc(
         run_diff_abundance(
             validated,
             feature_type = "taxa",
@@ -104,11 +95,9 @@ test_that("run_diff_abundance successfully fits model for single feature type ('
 test_that("run_diff_abundance runs across both feature types ('both')", {
 
     d <- make_test_data(abundance_scale = "counts")
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
-    res <- suppressWarnings(
+    res <- quiet_ancombc(
         run_diff_abundance(
             validated,
             feature_type = "both",
@@ -128,11 +117,9 @@ test_that("run_diff_abundance sanitizes non-standard characters in disease label
     d <- make_test_data(abundance_scale = "counts")
     d$metadata$disease <- ifelse(d$metadata$disease == "healthy", "Healthy Control", "T2D Stage-2")
 
-    validated <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
-    res <- suppressWarnings(
+    res <- quiet_ancombc(
         run_diff_abundance(
             validated,
             feature_type = "taxa",

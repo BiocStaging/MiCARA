@@ -113,3 +113,40 @@ expected_reconstructed_counts <- function(mat, scale, sample_reads) {
 
     round(sweep(prop_mat, 2, sample_reads, FUN = "*"))
 }
+
+
+## Helpers for warnings that the tests expect.
+## Each one checks or hides only the named warnings; any other warning
+## still shows up in the test results.
+
+# validate_inputs() on relative-abundance test data without number_reads
+# warns once for taxa and once for pathways: expect exactly those two.
+# Returns the value of `expr`, so `x <- expect_scale_warnings(...)` works.
+expect_scale_warnings <- function(expr) {
+    value <- NULL
+    expect_warning(
+        expect_warning(value <- expr, "\\[taxa\\].*number_reads"),
+        "\\[pathways\\].*number_reads"
+    )
+    invisible(value)
+}
+
+# ANCOM-BC2 warns that the small test data have < 3 groups and too few
+# features to estimate sample-specific biases: hide only these warnings.
+quiet_ancombc <- function(expr) {
+    withCallingHandlers(expr, warning = function(w) {
+        if (grepl("group variable has < 3 categories|sample-specific biases", conditionMessage(w))) {
+            invokeRestart("muffleWarning")
+        }
+    })
+}
+
+# PNG export needs webshot2 and a headless Chrome, which test machines may
+# lack; the .html file is still written: hide only these warnings.
+quiet_png_export <- function(expr) {
+    withCallingHandlers(expr, warning = function(w) {
+        if (grepl("webshot2|static PNG", conditionMessage(w))) {
+            invokeRestart("muffleWarning")
+        }
+    })
+}

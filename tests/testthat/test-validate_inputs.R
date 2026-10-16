@@ -11,7 +11,7 @@
 test_that("valid percentage-scale input is retained when read counts are unavailable", {
     d <- make_test_data(abundance_scale = "percentage")
 
-    result <- suppressWarnings(
+    result <- expect_scale_warnings(
         validate_inputs(
             d$taxa, d$pathways, d$metadata,
             verbose = FALSE
@@ -38,15 +38,14 @@ test_that("valid percentage-scale input is retained when read counts are unavail
 test_that("relative abundance without number_reads issues a warning", {
     d <- make_test_data(abundance_scale = "percentage")
 
-    suppressWarnings(expect_warning(
+    expect_scale_warnings(
         validate_inputs(
             d$taxa,
             d$pathways,
             d$metadata,
             verbose = FALSE
-        ),
-        "Input is in 'percentage' scale"
-    ))
+        )
+    )
 })
 
 ## ------------------------------------------------------------------------
@@ -60,17 +59,13 @@ test_that("percentage-scale input is reconstructed to estimated counts when read
     )
 
     # 1. Obtain result directly so downstream checks never see NULL
-    result <- suppressWarnings(
-        suppressMessages(
-            validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-        )
+    result <- suppressMessages(
+        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
 
     # 2. Check that verbose mode emits the reconstruction message
     expect_no_error(
-        suppressWarnings(
-            validate_inputs(d$taxa, d$pathways, d$metadata, verbose = TRUE)
-        )
+        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = TRUE)
     )
 
     # 3. Assertions
@@ -106,17 +101,13 @@ test_that("proportion-scale input is reconstructed to estimated counts when read
     )
 
     # 1. Obtain result directly so downstream checks never see NULL
-    result <- suppressWarnings(
-        suppressMessages(
-            validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-        )
+    result <- suppressMessages(
+        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     )
 
     # 2. Check that verbose mode emits the reconstruction message
     expect_no_error(
-        suppressWarnings(
-            validate_inputs(d$taxa, d$pathways, d$metadata, verbose = TRUE)
-        )
+        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = TRUE)
     )
 
     # 3. Assertions
@@ -153,19 +144,19 @@ test_that("matrix inputs are accepted and converted", {
     d <- make_test_data()
 
     expect_no_error(
-        suppressWarnings(
+        expect_scale_warnings(
             validate_inputs(as.matrix(d$taxa), d$pathways, d$metadata, verbose = FALSE)
         )
     )
 
     expect_no_error(
-        suppressWarnings(
+        expect_scale_warnings(
             validate_inputs(d$taxa, as.matrix(d$pathways), d$metadata, verbose = FALSE)
         )
     )
 
     expect_no_error(
-        suppressWarnings(
+        expect_scale_warnings(
             validate_inputs(d$taxa, d$pathways, as.matrix(d$metadata), verbose = FALSE)
         )
     )
@@ -236,7 +227,7 @@ test_that("missing mandatory metadata column ('disease') is caught", {
 test_that("diseases below the sample size threshold are removed", {
     d <- make_test_data(n_samples_per_disease = c(healthy = 15, T2D = 15, rare_disease = 3))
 
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, disease_min_samples = 10, verbose = FALSE)
     })
 
@@ -251,7 +242,7 @@ test_that("diseases below the sample size threshold are removed", {
 
 test_that("covariates exceeding the missingness cutoff are dropped", {
     d <- make_test_data(covariate_missing_frac = 0.5)
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, metadata_missing_cutoff = 0.30, verbose = FALSE)
     })
     expect_false("BMI" %in% result$confounders)
@@ -260,7 +251,7 @@ test_that("covariates exceeding the missingness cutoff are dropped", {
 
 test_that("covariates below the missingness cutoff are retained", {
     d <- make_test_data(covariate_missing_frac = 0.10)
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, metadata_missing_cutoff = 0.30, verbose = FALSE)
     })
     expect_true("BMI" %in% result$confounders)
@@ -272,7 +263,7 @@ test_that("covariates below the missingness cutoff are retained", {
 
 test_that("alternative cased covariate name in metadata is correctly detected", {
     d <- make_test_data(rename_bmi = TRUE)
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     })
     expect_true("bmi" %in% result$confounders || "BMI" %in% result$confounders)
@@ -285,7 +276,7 @@ test_that("alternative cased covariate name in metadata is correctly detected", 
 # Proportions test
 test_that("proportion-scale input is correctly detected and left unchanged", {
     d <- make_test_data(abundance_scale = "proportion")
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     })
 
@@ -334,13 +325,11 @@ test_that("unrecognisable abundance scale raises an informative error", {
     d$taxa <- d$taxa * 25.5
 
     expect_error(
-        suppressWarnings(
-            validate_inputs(
-                d$taxa,
-                d$pathways,
-                d$metadata,
-                verbose = FALSE
-            )
+        validate_inputs(
+            d$taxa,
+            d$pathways,
+            d$metadata,
+            verbose = FALSE
         ),
         "Unrecognised abundance scale"
     )
@@ -353,7 +342,7 @@ test_that("unrecognisable abundance scale raises an informative error", {
 
 test_that("returned object has the expected structure and class", {
     d <- make_test_data()
-    suppressWarnings({
+    expect_scale_warnings({
         result <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     })
 
@@ -374,7 +363,7 @@ test_that("custom disease column name is accepted and standardized to disease", 
     d$metadata$Group <- d$metadata$disease
     d$metadata$disease <- NULL
 
-    result <- suppressWarnings(
+    result <- expect_scale_warnings(
         validate_inputs(
             d$taxa, d$pathways, d$metadata,
             disease_col = "Group",
@@ -396,7 +385,7 @@ test_that("feature names in the first column are converted to rownames", {
     taxa_df <- cbind(feature_id = rownames(d$taxa), d$taxa)
     rownames(taxa_df) <- NULL
 
-    result <- suppressWarnings(
+    result <- expect_scale_warnings(
         validate_inputs(taxa_df, d$pathways, d$metadata, verbose = FALSE)
     )
 
@@ -424,9 +413,7 @@ test_that("sequencing depth column aliases are mapped to number_reads", {
     d <- make_test_data()
     d$metadata$read_count <- sample(10000:50000, nrow(d$metadata), replace = TRUE)
 
-    result <- suppressWarnings(
-        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
-    )
+    result <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
 
     expect_true("number_reads" %in% colnames(result$metadata))
     expect_equal(result$metadata$number_reads, d$metadata$read_count)
