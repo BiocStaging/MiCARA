@@ -62,7 +62,6 @@
 #'   \code{"micara_diffab"}. If multiple feature types are analyzed, a named list
 #'   of \code{"micara_diffab"} objects with class \code{"micara_diffab_list"}.
 #'
-#' @importFrom phyloseq phyloseq otu_table sample_data
 #' @importFrom ANCOMBC ancombc2
 #' @importFrom stats relevel na.omit
 #' @export
@@ -177,7 +176,7 @@ run_diff_abundance <- function(
     ## ------------------------------------------------------------------
     ## 1. Validate Input & Dependencies
     ## ------------------------------------------------------------------
-    # Class & Package Checks: Confirms micara_obj was created by MiCARA functions and verifies that ANCOMBC and phyloseq are installed.
+    # Class check: confirms micara_obj was created by MiCARA functions.
 
     if (!inherits(micara_obj, "micara_input")) {
         stop(
@@ -244,7 +243,7 @@ run_diff_abundance <- function(
             )
         }
 
-        ## Coerce matrix values to clean integer count format for phyloseq
+        ## Coerce matrix values to clean integer count format for ANCOM-BC2
         feature_mat <- as.matrix(feature_mat)
         if (!is.numeric(feature_mat)) {
             stop("Feature matrix '", ft, "' must contain numeric values.")
@@ -288,7 +287,7 @@ run_diff_abundance <- function(
         if (verbose) {
             message("[Info] Re-leveling 'disease' with reference level: '", reference_level, "'")
         }
-        # set the reference group before building the phyloseq object
+        # set the reference group before calling ANCOM-BC2
         metadata$disease <- stats::relevel(factor(metadata$disease), ref = reference_level)
 
         ## Determine Fixed Effects
@@ -369,24 +368,18 @@ run_diff_abundance <- function(
         }
 
         ## ------------------------------------------------------------------
-        ## Build Phyloseq Object (Auto-Detect Sample Orientation)
+        ## Align feature matrix with metadata (auto-detect sample orientation)
         ## ------------------------------------------------------------------
         rownames(metadata) <- as.character(metadata$sample_id)
-
+        
         if (all(rownames(metadata) %in% rownames(feature_mat))) {
             # Samples are in ROWS of feature_mat
             feature_mat <- feature_mat[rownames(metadata), , drop = FALSE]
-            ps <- phyloseq::phyloseq(
-                phyloseq::otu_table(feature_mat, taxa_are_rows = FALSE),
-                phyloseq::sample_data(metadata)
-            )
+            taxa_are_rows <- FALSE
         } else if (all(rownames(metadata) %in% colnames(feature_mat))) {
             # Samples are in COLUMNS of feature_mat
             feature_mat <- feature_mat[, rownames(metadata), drop = FALSE]
-            ps <- phyloseq::phyloseq(
-                phyloseq::otu_table(feature_mat, taxa_are_rows = TRUE),
-                phyloseq::sample_data(metadata)
-            )
+            taxa_are_rows <- TRUE
         } else {
             stop(
                 "Internal alignment mismatch ", ft, " matrix sample names do not match ",
@@ -419,7 +412,9 @@ run_diff_abundance <- function(
         fit <- withCallingHandlers(
             {
                 ANCOMBC::ancombc2(
-                    data         = ps,
+                    data          = feature_mat,
+                    taxa_are_rows = taxa_are_rows,
+                    meta_data     = metadata,
                     fix_formula  = fix_formula,
                     rand_formula = cur_rand_formula,
                     p_adj_method = p_adj_method,

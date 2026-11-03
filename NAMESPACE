@@ -20,11 +20,6 @@ importFrom(mice,
   mice
 )
 importFrom(networkD3,sankeyNetwork)
-importFrom(phyloseq,
-  otu_table,
-  phyloseq,
-  sample_data
-)
 importFrom(stats,
   na.omit,
   relevel

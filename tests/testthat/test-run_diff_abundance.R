@@ -1,5 +1,3 @@
-skip_if_not_installed("microbiome")
-
 
 test_that("run_diff_abundance validates micara_obj class", {
     expect_error(
