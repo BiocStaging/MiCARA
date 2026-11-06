@@ -38,11 +38,11 @@
 #'   \code{NULL} analyses every disease represented in both differential
 #'   abundance result objects.
 #' @param covariates Character vector of metadata columns to remove before
-#'   correlation. The default \code{NULL} uses retained MiCARA confounders
-#'   among \code{age_category}, \code{BMI}, \code{gender}, and
-#'   \code{study_name}. This reproduces the CAMDA analysis when all four are
-#'   available. Non-estimable covariates are dropped within each disease and
-#'   reported.
+#'   correlation. The default \code{NULL} uses all confounders retained by
+#'   \code{validate_inputs()} (\code{micara_obj$confounders}); as in
+#'   \code{run_diff_abundance()}, continuous \code{age} is used instead of
+#'   \code{age_category} when both are present. Non-estimable covariates are
+#'   dropped within each disease and reported.
 #' @param q_cutoff Strict BH-adjusted p-value threshold for retaining links.
 #'   Default \code{0.05}.
 #' @param r_cutoff Strict minimum absolute Spearman correlation for retaining
@@ -234,9 +234,11 @@ compute_residualCLR_correlations <- function(micara_obj,
     ## 3. Resolve & Validate Covariates
     ## ------------------------------------------------------------------
     if (is.null(covariates)) {
-        preferred <- c("age_category", "BMI", "gender", "study_name")
-        retained <- micara_obj$confounders %||% character(0)
-        covariates <- intersect(preferred, retained)
+        covariates <- micara_obj$confounders %||% character(0)
+        # As in run_diff_abundance(): prefer continuous age over age_category
+        if (all(c("age", "age_category") %in% covariates)) {
+            covariates <- setdiff(covariates, "age_category")
+        }
 
         # Dynamic fallback: grab non-ID/non-disease columns if retain list is empty
         if (length(covariates) == 0L) {

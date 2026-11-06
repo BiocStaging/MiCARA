@@ -53,6 +53,16 @@ clean_shotgun_input <- function(df) {
 #' @param pathways Functional pathway abundance table. Must be a data.frame.
 #' @param metadata Sample metadata. Must contain sample IDs and disease labels.
 #' @param disease_col Name of the disease column in metadata. Default "disease".
+#' #' @param confounders Optional character vector of metadata columns to treat as
+#'   confounders, for example \code{c("age", "BMI", "antibiotics")}. The default
+#'   \code{NULL} recognises common host and study covariates by name
+#'   (case-insensitive): \code{study_name}, \code{age}, \code{age_category},
+#'   \code{gender}, \code{sex}, \code{bmi}, \code{body_site} and \code{site}.
+#'   In both cases, confounders with more than \code{metadata_missing_cutoff}
+#'   missing values are removed, and the QC report lists the metadata columns
+#'   that are not used. The retained confounders are the defaults for
+#'   \code{impute_metadata()}, \code{run_diff_abundance()} and
+#'   \code{compute_residualCLR_correlations()}.
 #' @param disease_min_samples Minimum required samples per disease group. Default 10.
 #' @param metadata_missing_cutoff Allowed missing value fraction for covariates. Default 0.30.
 #' @param normalise Logical indicating whether feature normalization should be performed.
@@ -104,6 +114,7 @@ validate_inputs <- function(
   pathways,
   metadata,
   disease_col = "disease",
+  confounders = NULL,
   disease_min_samples = 10,
   metadata_missing_cutoff = 0.30,
   normalise = TRUE,
@@ -320,14 +331,38 @@ validate_inputs <- function(
     pathways <- pathways[, keep_sample_ids, drop = FALSE]
     metadata <- metadata[match(keep_sample_ids, metadata$sample_id), , drop = FALSE]
 
+    
+    
     ## ================================================================
-    ## 6. Case-Insensitive Covariate / Confounder Assessment
+    ## 6. Covariate / Confounder Assessment
     ## ================================================================
-    recognised_covariates <- c("study_name", "age", "age_category", "gender", "sex", "bmi", "body_site", "site")
     meta_cols <- names(metadata)
-    is_covariate <- tolower(meta_cols) %in% tolower(recognised_covariates) &
-        !tolower(meta_cols) %in% c("sample_id", "disease", tolower(disease_col), "number_reads")
-    available_covariates <- meta_cols[is_covariate]
+    protected_cols <- c("sample_id", "disease", tolower(disease_col), "number_reads")
+    
+    if (is.null(confounders)) {
+        # Default: recognise common host and study covariates by name (case-insensitive)
+        recognised_covariates <- c("study_name", "age", "age_category", "gender", "sex", "bmi", "body_site", "site")
+        is_covariate <- tolower(meta_cols) %in% tolower(recognised_covariates) &
+            !tolower(meta_cols) %in% protected_cols
+        available_covariates <- meta_cols[is_covariate]
+    } else {
+        # User-declared confounders
+        if (!is.character(confounders)) {
+            stop("'confounders' must be a character vector of metadata column names.", call. = FALSE)
+        }
+        not_found <- setdiff(confounders, meta_cols)
+        if (length(not_found) > 0L) {
+            stop("Confounder column(s) not found in metadata: ", paste(not_found, collapse = ", "), call. = FALSE)
+        }
+        not_allowed <- confounders[tolower(confounders) %in% protected_cols]
+        if (length(not_allowed) > 0L) {
+            stop("These columns cannot be used as confounders: ", paste(not_allowed, collapse = ", "), call. = FALSE)
+        }
+        available_covariates <- unique(confounders)
+    }
+    
+    # Metadata columns that are neither IDs/disease/read depth nor confounders
+    unused_columns <- setdiff(meta_cols[!tolower(meta_cols) %in% protected_cols], available_covariates)
 
     if (length(available_covariates) > 0L) {
         missing_fraction <- vapply(available_covariates, function(x) mean(is.na(metadata[[x]])), numeric(1))
@@ -528,6 +563,7 @@ validate_inputs <- function(
         removed_dis_str <- if (length(removed_diseases) > 0L) paste(removed_diseases, collapse = ", ") else "None"
         retained_cov_str <- if (length(retained_covariates) > 0L) paste(retained_covariates, collapse = ", ") else "None"
         removed_cov_str <- if (length(removed_covariates) > 0L) paste(removed_covariates, collapse = ", ") else "None"
+        unused_str <- if (length(unused_columns) > 0L) paste(unused_columns, collapse = ", ") else "None"
 
         message(paste(c(
             "\n========== MiCARA Input QC ==========",
@@ -538,6 +574,8 @@ validate_inputs <- function(
             paste0("Pathway scale detected:  ", pathways_scale),
             paste0("Covariates retained:     ", retained_cov_str),
             paste0("Covariates removed:      ", removed_cov_str),
+            paste0("Columns not used:        ", unused_str),
+            if (length(unused_columns) > 0L) "  (to adjust for any of these, list them in 'confounders')",
             "====================================="
         ), collapse = "\n"))
     }

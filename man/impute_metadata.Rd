@@ -19,10 +19,10 @@ impute_metadata(
 \item{micara_obj}{An object of class \code{micara_input}, as returned
 by \code{\link{validate_inputs}}.}
 
-\item{impute_vars}{Character vector of host confounders to impute.
-Defaults to the intersection of \code{c("age", "gender", "BMI")} and
-\code{micara_obj$confounders} (i.e., host covariates that passed the
-missingness cutoff in \code{validate_inputs()}).}
+\item{impute_vars}{Character vector of confounders to impute. Defaults to
+the confounders retained by \code{validate_inputs()}
+(\code{micara_obj$confounders}) that contain missing values, excluding the
+design variables \code{study_name} and \code{age_category}.}
 
 \item{auxiliary_predictors}{Character vector of additional metadata
 columns to include as MICE predictors (never imputation targets).
@@ -51,8 +51,9 @@ the input object with updated \code{metadata}, plus \code{mice_fit} (the full
 present or imputation was skipped).
 }
 \description{
-Imputes missing values in host confounders (\code{age}, \code{gender}, \code{BMI})
-that were retained by \code{\link{validate_inputs}} (i.e., below the missingness
+Imputes missing values in the confounders retained by
+\code{\link{validate_inputs}} (for example \code{age}, \code{gender} and
+\code{BMI}; i.e., below the missingness
 cutoff). Experimental design indicators such as \code{disease}, \code{study_name},
 and sequencing depth (\code{number_reads}) are strictly protected and used only
 as auxiliary predictors to inform imputation. \code{age_category} is also treated

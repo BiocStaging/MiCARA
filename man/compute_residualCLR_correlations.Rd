@@ -41,11 +41,11 @@ object is supplied through \code{taxa_diffab} or
 abundance result objects.}
 
 \item{covariates}{Character vector of metadata columns to remove before
-correlation. The default \code{NULL} uses retained MiCARA confounders
-among \code{age_category}, \code{BMI}, \code{gender}, and
-\code{study_name}. This reproduces the CAMDA analysis when all four are
-available. Non-estimable covariates are dropped within each disease and
-reported.}
+correlation. The default \code{NULL} uses all confounders retained by
+\code{validate_inputs()} (\code{micara_obj$confounders}); as in
+\code{run_diff_abundance()}, continuous \code{age} is used instead of
+\code{age_category} when both are present. Non-estimable covariates are
+dropped within each disease and reported.}
 
 \item{q_cutoff}{Strict BH-adjusted p-value threshold for retaining links.
 Default \code{0.05}.}

@@ -9,6 +9,7 @@ validate_inputs(
   pathways,
   metadata,
   disease_col = "disease",
+  confounders = NULL,
   disease_min_samples = 10,
   metadata_missing_cutoff = 0.3,
   normalise = TRUE,
@@ -22,7 +23,17 @@ validate_inputs(
 
 \item{metadata}{Sample metadata. Must contain sample IDs and disease labels.}
 
-\item{disease_col}{Name of the disease column in metadata. Default "disease".}
+\item{disease_col}{Name of the disease column in metadata. Default "disease".
+#' @param confounders Optional character vector of metadata columns to treat as
+confounders, for example \code{c("age", "BMI", "antibiotics")}. The default
+\code{NULL} recognises common host and study covariates by name
+(case-insensitive): \code{study_name}, \code{age}, \code{age_category},
+\code{gender}, \code{sex}, \code{bmi}, \code{body_site} and \code{site}.
+In both cases, confounders with more than \code{metadata_missing_cutoff}
+missing values are removed, and the QC report lists the metadata columns
+that are not used. The retained confounders are the defaults for
+\code{impute_metadata()}, \code{run_diff_abundance()} and
+\code{compute_residualCLR_correlations()}.}
 
 \item{disease_min_samples}{Minimum required samples per disease group. Default 10.}
 

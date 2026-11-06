@@ -439,3 +439,43 @@ test_that("HUMAnN UNMAPPED, UNINTEGRATED and stratified pathway rows are dropped
     
     expect_identical(rownames(result$pathways), rownames(d$pathways))
 })
+
+## ------------------------------------------------------------------------
+## User-declared confounders
+## ------------------------------------------------------------------------
+
+test_that("user-declared confounders are used, including non-standard columns", {
+    d <- make_test_data(abundance_scale = "counts")
+    d$metadata$antibiotics <- rep(c("yes", "no"), length.out = nrow(d$metadata))
+    
+    result <- validate_inputs(
+        d$taxa, d$pathways, d$metadata,
+        confounders = c("age", "antibiotics"),
+        verbose = FALSE
+    )
+    
+    expect_identical(result$confounders, c("age", "antibiotics"))
+})
+
+test_that("declared confounders missing from the metadata raise an error", {
+    d <- make_test_data(abundance_scale = "counts")
+    
+    expect_error(
+        validate_inputs(
+            d$taxa, d$pathways, d$metadata,
+            confounders = c("age", "country"),
+            verbose = FALSE
+        ),
+        "not found in metadata: country"
+    )
+})
+
+test_that("metadata columns not used as confounders are reported", {
+    d <- make_test_data(abundance_scale = "counts")
+    d$metadata$antibiotics <- rep(c("yes", "no"), length.out = nrow(d$metadata))
+    
+    expect_message(
+        validate_inputs(d$taxa, d$pathways, d$metadata, verbose = TRUE),
+        "Columns not used: +antibiotics"
+    )
+})

@@ -81,3 +81,19 @@ test_that("impute_metadata executes MICE successfully and fills missing values",
     expect_false(any(is.na(res$metadata$BMI)))
     expect_s3_class(res$mice_fit, "mids")
 })
+
+test_that("impute_metadata imputes user-declared confounders by default", {
+    d <- make_test_data(abundance_scale = "counts")
+    d$metadata$antibiotics <- rep(c("yes", "no"), length.out = nrow(d$metadata))
+    d$metadata$antibiotics[c(2, 5, 9)] <- NA
+    
+    validated <- validate_inputs(
+        d$taxa, d$pathways, d$metadata,
+        confounders = c("age", "antibiotics"),
+        verbose = FALSE
+    )
+    res <- impute_metadata(validated, m = 2, verbose = FALSE)
+    
+    expect_identical(res$imputed_vars, "antibiotics")
+    expect_false(anyNA(res$metadata$antibiotics))
+})

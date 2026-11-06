@@ -22,6 +22,8 @@ knitr::opts_chunk$set(
 )
 ```
 
+
+
 ## Installation
 
 Once MiCARA is accepted, it can be installed from Bioconductor:
@@ -45,7 +47,8 @@ MiCARA is designed to be flexible depending on your dataset's completeness and c
 
 ### Step 1: Input Validation
 
-`validate_inputs()` ensures sample ID alignment across taxonomic matrices, pathway matrices, and sample metadata. It checks relative vs. absolute abundances, flags high-missingness covariates (>30%), and records retained confounders.
+`validate_inputs()` ensures sample ID alignment across taxonomic matrices, pathway matrices, and sample metadata. It checks relative vs. absolute abundances, flags high-missingness covariates (>30%), and records retained confounders. By default, common covariates (age, gender, BMI, study name, body site) are recognised by name; to adjust for other variables, list them in confounders, for example confounders = c("age", "BMI", "antibiotics"). The QC report lists any metadata columns that are not used.
+
 
 ```{r validate-step, eval = TRUE}
 # Load example dataset included in MiCARA

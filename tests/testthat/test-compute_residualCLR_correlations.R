@@ -348,3 +348,21 @@ test_that("compute_residualCLR_correlations respects retain_all_pairs = FALSE", 
 
     expect_null(res[["DiseaseA"]]$all_links)
 })
+
+test_that("default covariates are all retained confounders, preferring age over age_category", {
+    inputs <- make_mock_cor_inputs(n_samples = 30)
+    md <- inputs$micara_obj$metadata
+    inputs$micara_obj$metadata$age_category <- ifelse(md$age > 40, "older", "younger")
+    inputs$micara_obj$metadata$antibiotics <- rep(c("yes", "no"), length.out = nrow(md))
+    inputs$micara_obj$confounders <- c("age", "age_category", "BMI", "antibiotics")
+    
+    res <- compute_residualCLR_correlations(
+        inputs$micara_obj,
+        inputs$diffab_list,
+        q_cutoff = 1.0,
+        r_cutoff = 0.0,
+        verbose = FALSE
+    )
+    
+    expect_identical(res[["DiseaseA"]]$covariates_requested, c("age", "BMI", "antibiotics"))
+})

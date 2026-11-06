@@ -1,7 +1,8 @@
 #' Impute Missing Metadata Covariates Using MICE
 #'
-#' Imputes missing values in host confounders (\code{age}, \code{gender}, \code{BMI})
-#' that were retained by \code{\link{validate_inputs}} (i.e., below the missingness
+#' Imputes missing values in the confounders retained by
+#' \code{\link{validate_inputs}} (for example \code{age}, \code{gender} and
+#' \code{BMI}; i.e., below the missingness
 #' cutoff). Experimental design indicators such as \code{disease}, \code{study_name},
 #' and sequencing depth (\code{number_reads}) are strictly protected and used only
 #' as auxiliary predictors to inform imputation. \code{age_category} is also treated
@@ -17,10 +18,10 @@
 #'
 #' @param micara_obj An object of class \code{micara_input}, as returned
 #'   by \code{\link{validate_inputs}}.
-#' @param impute_vars Character vector of host confounders to impute.
-#'   Defaults to the intersection of \code{c("age", "gender", "BMI")} and
-#'   \code{micara_obj$confounders} (i.e., host covariates that passed the
-#'   missingness cutoff in \code{validate_inputs()}).
+#' @param impute_vars Character vector of confounders to impute. Defaults to
+#'   the confounders retained by \code{validate_inputs()}
+#'   (\code{micara_obj$confounders}) that contain missing values, excluding the
+#'   design variables \code{study_name} and \code{age_category}.
 #' @param auxiliary_predictors Character vector of additional metadata
 #'   columns to include as MICE predictors (never imputation targets).
 #'   Defaults to \code{c("study_name", "age_category", "disease")} when present.
@@ -114,11 +115,11 @@ impute_metadata <- function(micara_obj,
     ## imputing continuous age (see step 2).
     ## ------------------------------------------------------------------
 
-    host_confounders <- c("age", "gender", "BMI")
+    design_vars <- c("study_name", "age_category")
 
     if (is.null(impute_vars)) {
-        # Auto-detect intersection of host confounders and retained covariates
-        impute_vars <- intersect(host_confounders, micara_obj$confounders)
+        # Auto-detect: retained confounders, except the design variables
+        impute_vars <- setdiff(micara_obj$confounders, design_vars)
         # Retain only those that actually contain missing values
         impute_vars <- impute_vars[vapply(impute_vars, function(v) any(is.na(metadata[[v]])), logical(1))]
     } else {
