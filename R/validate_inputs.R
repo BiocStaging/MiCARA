@@ -58,6 +58,13 @@ clean_shotgun_input <- function(df) {
 #' @param normalise Logical indicating whether feature normalization should be performed.
 #' @param verbose Logical; print QC summary. Default TRUE.
 #'
+#' @details
+#' Rows named \code{UNMAPPED} or \code{UNINTEGRATED} and per-taxon (stratified)
+#' HUMAnN pathway rows are removed, so community-level pathway tables such as
+#' those from curatedMetagenomicData can be used directly. To import raw
+#' MetaPhlAn or HUMAnN output files, use \code{mia::importMetaPhlAn()} or
+#' \code{mia::importHUMAnN()}.
+#'
 #' @return An object of class \code{"micara_input"}.
 #' @importFrom utils head tail
 #' @export

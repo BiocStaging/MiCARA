@@ -39,6 +39,13 @@ An object of class \code{"micara_input"}.
 Performs quality control on taxonomic and functional pathway abundance
 tables and accompanying sample metadata.
 }
+\details{
+Rows named \code{UNMAPPED} or \code{UNINTEGRATED} and per-taxon (stratified)
+HUMAnN pathway rows are removed, so community-level pathway tables such as
+those from curatedMetagenomicData can be used directly. To import raw
+MetaPhlAn or HUMAnN output files, use \code{mia::importMetaPhlAn()} or
+\code{mia::importHUMAnN()}.
+}
 \examples{
 set.seed(123)
 sample_ids <- paste0("Sample_", 1:20)

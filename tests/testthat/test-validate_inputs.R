@@ -418,3 +418,24 @@ test_that("sequencing depth column aliases are mapped to number_reads", {
     expect_true("number_reads" %in% colnames(result$metadata))
     expect_equal(result$metadata$number_reads, d$metadata$read_count)
 })
+
+## ------------------------------------------------------------------------
+## 14. A test that adds three junk rows to a pathway table and checks that validate_inputs() returns exactly the original pathways
+## ------------------------------------------------------------------------
+
+
+test_that("HUMAnN UNMAPPED, UNINTEGRATED and stratified pathway rows are dropped", {
+    d <- make_test_data(abundance_scale = "counts")
+    pw <- cbind(feature_id = rownames(d$pathways), d$pathways)
+    rownames(pw) <- NULL
+    extra <- pw[1:3, ]
+    extra$feature_id <- c(
+        "UNMAPPED",
+        "UNINTEGRATED",
+        paste0(pw$feature_id[1], "|g__Bacteroides.s__Bacteroides_vulgatus")
+    )
+    
+    result <- validate_inputs(d$taxa, rbind(pw, extra), d$metadata, verbose = FALSE)
+    
+    expect_identical(rownames(result$pathways), rownames(d$pathways))
+})
