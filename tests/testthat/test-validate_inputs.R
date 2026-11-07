@@ -479,3 +479,38 @@ test_that("metadata columns not used as confounders are reported", {
         "Columns not used: +antibiotics"
     )
 })
+
+## ------------------------------------------------------------------------
+## HUMAnN CPM and RPK pathway tables 
+## ------------------------------------------------------------------------
+
+test_that("HUMAnN CPM pathway tables are recognised and rescaled like proportions", {
+    d <- make_test_data(abundance_scale = "proportion", add_number_reads = TRUE)
+    from_prop <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    cpm <- d$pathways * 1e6
+    from_cpm <- validate_inputs(d$taxa, cpm, d$metadata, verbose = FALSE)
+    
+    expect_equal(from_cpm$abundance_type$detected$pathways, "cpm")
+    expect_equal(from_cpm$abundance_type$final$pathways, "counts")
+    expect_equal(from_cpm$pathways, from_prop$pathways)
+})
+
+test_that("HUMAnN RPK pathway tables need pathways_scale = 'rpk'", {
+    d <- make_test_data(abundance_scale = "proportion", add_number_reads = TRUE)
+    from_prop <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    ## RPK-like values: non-integer, in the 10-5000 range, different total per sample
+    rpk <- sweep(d$pathways, 2, seq(5000, 15000, length.out = ncol(d$pathways)), "*")
+    
+    expect_error(
+        validate_inputs(d$taxa, rpk, d$metadata, verbose = FALSE),
+        "pathways_scale = \"rpk\""
+    )
+    
+    from_rpk <- validate_inputs(d$taxa, rpk, d$metadata, pathways_scale = "rpk", verbose = FALSE)
+    
+    expect_equal(from_rpk$abundance_type$detected$pathways, "rpk")
+    expect_equal(from_rpk$abundance_type$final$pathways, "counts")
+    expect_equal(from_rpk$pathways, from_prop$pathways)
+})

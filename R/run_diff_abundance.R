@@ -235,7 +235,7 @@ run_diff_abundance <- function(
         metadata <- micara_obj$metadata
 
         ## Check abundance scale
-        current_scale <- micara_obj$abundance_scale$final[[ft]]
+        current_scale <- micara_obj$abundance_type$final[[ft]]
         if (!is.null(current_scale) && current_scale != "counts") {
             warning(
                 "ANCOM-BC2 log-linear models expect integer count data, but '", ft,

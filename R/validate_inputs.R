@@ -63,6 +63,14 @@ clean_shotgun_input <- function(df) {
 #'   that are not used. The retained confounders are the defaults for
 #'   \code{impute_metadata()}, \code{run_diff_abundance()} and
 #'   \code{compute_residualCLR_correlations()}.
+#' @param pathways_scale Scale of the pathway table. The default \code{"auto"}
+#'   recognises integer counts, proportions, percentages and HUMAnN copies per
+#'   million (samples summing to about one million). HUMAnN RPK tables (the
+#'   default HUMAnN output) cannot be recognised automatically; use
+#'   \code{pathways_scale = "rpk"}. Other values: \code{"counts"},
+#'   \code{"proportion"}, \code{"percentage"} and \code{"cpm"}. CPM and RPK
+#'   values are converted to within-sample proportions and then handled like
+#'   relative abundances (see the section "Abundance scales").
 #' @param disease_min_samples Minimum required samples per disease group. Default 10.
 #' @param metadata_missing_cutoff Allowed missing value fraction for covariates. Default 0.30.
 #' @param normalise Logical indicating whether feature normalization should be performed.
@@ -74,6 +82,19 @@ clean_shotgun_input <- function(df) {
 #' those from curatedMetagenomicData can be used directly. To import raw
 #' MetaPhlAn or HUMAnN output files, use \code{mia::importMetaPhlAn()} or
 #' \code{mia::importHUMAnN()}.
+#' @section Abundance scales:
+#' Relative abundances (proportions, percentages, or HUMAnN CPM or RPK
+#' converted to proportions) are multiplied by \code{metadata$number_reads}
+#' and rounded when that column is available. Pathway abundances, and MetaPhlAn
+#' relative abundances, are not in units of reads, so the result is a
+#' count-scaled abundance rather than an observed read count. In principle,
+#' this per-sample rescaling does not change the log-fold changes: ANCOM-BC2
+#' estimates and removes a sample-specific bias term, and the CLR
+#' transformation used for the correlations is unchanged when a sample is
+#' multiplied by a constant (apart from zero replacement). The rescaling is
+#' needed because ANCOM-BC2's pseudo-count sensitivity analysis adds fixed
+#' pseudo-counts, which are small relative to the observed values only on a
+#' count-like scale.
 #'
 #' @return An object of class \code{"micara_input"}.
 #' @importFrom utils head tail
@@ -115,6 +136,7 @@ validate_inputs <- function(
   metadata,
   disease_col = "disease",
   confounders = NULL,
+  pathways_scale = "auto",
   disease_min_samples = 10,
   metadata_missing_cutoff = 0.30,
   normalise = TRUE,
@@ -416,8 +438,17 @@ validate_inputs <- function(
             return("percentage")
         }
 
-        # 5. Fallback: Throw informative error for ambiguous continuous scale
-        stop("Unrecognised abundance scale. Unable to determine scale.", call. = FALSE)
+        # 5. HUMAnN copies per million (samples sum to about one million)
+        if (abs(median_total - 1e6) <= 1e5) {
+            return("cpm")
+        }
+        
+        # 6. Fallback: Throw informative error for ambiguous continuous scale
+        stop(
+            "Unrecognised abundance scale: values are not integer counts, proportions, ",
+            "percentages or CPM. For HUMAnN RPK pathway tables, use pathways_scale = \"rpk\".",
+            call. = FALSE
+        )
     }
 
     ## Remove samples with zero recorded sequencing depth
@@ -447,7 +478,17 @@ validate_inputs <- function(
         }
     }
     taxa_scale <- detect_scale(taxa)
-    pathways_scale <- detect_scale(pathways)
+    pathways_scale <- match.arg(pathways_scale, c("auto", "counts", "proportion", "percentage", "cpm", "rpk"))
+    if (pathways_scale == "auto") {
+        pathways_scale <- detect_scale(pathways)
+    }
+    
+    # HUMAnN CPM or RPK: convert to within-sample proportions, then handle as relative abundances
+    pathways_working_scale <- pathways_scale
+    if (pathways_scale %in% c("cpm", "rpk")) {
+        pathways <- sweep(pathways, 2, pmax(colSums(pathways), .Machine$double.eps), FUN = "/")
+        pathways_working_scale <- "proportion"
+    }
 
     has_reads <- (
         "number_reads" %in% names(metadata) &&
@@ -477,10 +518,10 @@ validate_inputs <- function(
     }
 
     taxa <- process_dataset(taxa, taxa_scale, "taxa")
-    pathways <- process_dataset(pathways, pathways_scale, "pathways")
+    pathways <- process_dataset(pathways, pathways_working_scale, "pathways")
 
     final_taxa_scale <- if (has_reads && taxa_scale %in% c("percentage", "proportion")) "counts" else taxa_scale
-    final_pathways_scale <- if (has_reads && pathways_scale %in% c("percentage", "proportion")) "counts" else pathways_scale
+    final_pathways_scale <- if (has_reads && pathways_working_scale %in% c("percentage", "proportion")) "counts" else pathways_working_scale
 
     ## ================================================================
     ## 8. Post-reconstruction Zero-Sum Filtering

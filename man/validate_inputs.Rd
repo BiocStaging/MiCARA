@@ -10,6 +10,7 @@ validate_inputs(
   metadata,
   disease_col = "disease",
   confounders = NULL,
+  pathways_scale = "auto",
   disease_min_samples = 10,
   metadata_missing_cutoff = 0.3,
   normalise = TRUE,
@@ -35,6 +36,15 @@ that are not used. The retained confounders are the defaults for
 \code{impute_metadata()}, \code{run_diff_abundance()} and
 \code{compute_residualCLR_correlations()}.}
 
+\item{pathways_scale}{Scale of the pathway table. The default \code{"auto"}
+recognises integer counts, proportions, percentages and HUMAnN copies per
+million (samples summing to about one million). HUMAnN RPK tables (the
+default HUMAnN output) cannot be recognised automatically; use
+\code{pathways_scale = "rpk"}. Other values: \code{"counts"},
+\code{"proportion"}, \code{"percentage"} and \code{"cpm"}. CPM and RPK
+values are converted to within-sample proportions and then handled like
+relative abundances (see the section "Abundance scales").}
+
 \item{disease_min_samples}{Minimum required samples per disease group. Default 10.}
 
 \item{metadata_missing_cutoff}{Allowed missing value fraction for covariates. Default 0.30.}
@@ -57,6 +67,22 @@ those from curatedMetagenomicData can be used directly. To import raw
 MetaPhlAn or HUMAnN output files, use \code{mia::importMetaPhlAn()} or
 \code{mia::importHUMAnN()}.
 }
+\section{Abundance scales}{
+
+Relative abundances (proportions, percentages, or HUMAnN CPM or RPK
+converted to proportions) are multiplied by \code{metadata$number_reads}
+and rounded when that column is available. Pathway abundances, and MetaPhlAn
+relative abundances, are not in units of reads, so the result is a
+count-scaled abundance rather than an observed read count. In principle,
+this per-sample rescaling does not change the log-fold changes: ANCOM-BC2
+estimates and removes a sample-specific bias term, and the CLR
+transformation used for the correlations is unchanged when a sample is
+multiplied by a constant (apart from zero replacement). The rescaling is
+needed because ANCOM-BC2's pseudo-count sensitivity analysis adds fixed
+pseudo-counts, which are small relative to the observed values only on a
+count-like scale.
+}
+
 \examples{
 set.seed(123)
 sample_ids <- paste0("Sample_", 1:20)

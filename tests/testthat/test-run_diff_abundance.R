@@ -32,7 +32,7 @@ test_that("run_diff_abundance issues warning when input abundance scale is not '
     validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
     
     # Force scale label to 'percentage' to test MiCARA warning trigger
-    validated$abundance_scale$final$taxa <- "percentage"
+    validated$abundance_type$final$taxa <- "percentage"
 
     expect_warning(
         withCallingHandlers(
