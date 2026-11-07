@@ -129,3 +129,25 @@ test_that("run_diff_abundance sanitizes non-standard characters in disease label
     expect_s3_class(res, "micara_diffab")
     expect_equal(res$reference_level, "Healthy.Control")
 })
+
+## ------------------------------------------------------------------------
+## Internal helper 
+## ------------------------------------------------------------------------
+
+test_that(".run_single() runs ANCOM-BC2 on one feature table", {
+    d <- make_test_data(abundance_scale = "counts")
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    res <- quiet_ancombc(.run_single(
+        "pathways", validated,
+        reference_level = "healthy", disease_col = "disease",
+        fix_effects = NULL, exclude_covariates = NULL, rand_effect = "study_name",
+        p_adj_method = "BH", prv_cut = 0.10, alpha = 0.05, pairwise = FALSE,
+        struc_zero = TRUE, neg_lb = TRUE, pseudo_sens = TRUE, use_robust = TRUE,
+        n_cores = 1, verbose = FALSE
+    ))
+    
+    expect_s3_class(res, "micara_diffab")
+    expect_equal(res$feature_type, "pathways")
+    expect_equal(res$reference_level, "healthy")
+})

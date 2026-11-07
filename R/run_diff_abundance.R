@@ -230,320 +230,23 @@ run_diff_abundance <- function(
     if (verbose) {
         message("[Info] Setting '", reference_level, "' as the reference level for disease comparisons.")
     }
-    .run_single <- function(ft) {
-        feature_mat <- micara_obj[[ft]]
-        metadata <- micara_obj$metadata
-
-        ## Check abundance scale
-        current_scale <- micara_obj$abundance_type$final[[ft]]
-        if (!is.null(current_scale) && current_scale != "counts") {
-            warning(
-                "ANCOM-BC2 log-linear models expect integer count data, but '", ft,
-                "' matrix is currently in '", current_scale, "' scale. Results may be affected."
-            )
-        }
-
-        ## Coerce matrix values to clean integer count format for ANCOM-BC2
-        feature_mat <- as.matrix(feature_mat)
-        if (!is.numeric(feature_mat)) {
-            stop("Feature matrix '", ft, "' must contain numeric values.")
-        }
-
-        if (!all(feature_mat %% 1 == 0, na.rm = TRUE)) {
-            feature_mat <- round(feature_mat)
-        }
-        storage.mode(feature_mat) <- "integer"
-
-        ## Reference level check & re-leveling around it
-        ## Reference level check & re-leveling
-        if (!"disease" %in% names(metadata)) {
-            stop("'disease' column is missing from metadata.")
-        }
-
-        # sanitizes and cleans disease category labels so they don't break R formula syntax or cause string-mismatch errors during model fitting and downstream calculations
-        raw_disease <- as.character(metadata$disease)
-        clean_disease <- make.names(raw_disease)
-
-        if (!identical(raw_disease, clean_disease)) {
-            if (verbose) {
-                message("[Notice] Non-standard characters or spaces found in metadata$disease. Sanitizing labels with `make.names()`.")
-            }
-            metadata$disease <- clean_disease
-            # Also update the user's reference_level string to match the sanitized target
-            reference_level <- make.names(reference_level)
-        }
-
-
-        disease_levels <- unique(as.character(metadata$disease))
-
-        if (!reference_level %in% disease_levels) {
-            stop(
-                "reference_level '", reference_level, "' was not found in metadata$disease.\n",
-                "Available levels in your dataset: ", paste(paste0("'", disease_levels, "'"), collapse = ", "), "\n",
-                "Please specify 'reference_level = \"<your_baseline>\"' in run_diff_abundance()."
-            )
-        }
-
-        if (verbose) {
-            message("[Info] Re-leveling 'disease' with reference level: '", reference_level, "'")
-        }
-        # set the reference group before calling ANCOM-BC2
-        metadata$disease <- stats::relevel(factor(metadata$disease), ref = reference_level)
-
-        ## Determine Fixed Effects
-        cur_fix_effects <- fix_effects
-        if (is.null(cur_fix_effects)) {
-            cur_fix_effects <- setdiff(micara_obj$confounders, c("study_name", "disease"))
-
-            # Automatically prefer continuous 'age' over 'age_category'
-            if ("age" %in% cur_fix_effects && "age_category" %in% cur_fix_effects) {
-                cur_fix_effects <- setdiff(cur_fix_effects, "age_category")
-                if (verbose) {
-                    message("[Info] Both 'age' and 'age_category' present. Retaining continuous 'age' and dropping 'age_category' to prevent collinearity.")
-                }
-            }
-        }
-
-        if (!is.null(exclude_covariates)) {
-            cur_fix_effects <- setdiff(cur_fix_effects, exclude_covariates)
-        }
-
-
-        ## Validate presence and variance of fixed effect variables and automatically dropping covariates that have zero variance or missing values.
-        valid_fix <- character(0)
-        for (cov in cur_fix_effects) {
-            if (!cov %in% names(metadata)) {
-                warning("Covariate '", cov, "' specified in fixed effects was not found in metadata; dropping.")
-                next
-            }
-
-            col_vals <- metadata[[cov]]
-            if (any(is.na(col_vals))) {
-                warning(
-                    "Covariate '", cov, "' contains missing values. Consider running ",
-                    "impute_metadata() first to prevent sample loss during model fitting."
-                )
-            }
-
-            if (length(unique(stats::na.omit(col_vals))) <= 1) {
-                warning("Covariate '", cov, "' has zero variance (constant); dropping from fixed effects.")
-                next
-            }
-
-            valid_fix <- c(valid_fix, cov)
-        }
-
-        fix_formula <- paste(c(valid_fix, "disease"), collapse = " + ")
-
-        ## Determine Random Effects (Multi-Cohort Safeguard)
-        # if your dataset only contains a single study, it safely turns off (1 | study_name) to prevent model fitting errors.
-        cur_rand_formula <- NULL
-        if (!is.null(rand_effect)) {
-            if (!rand_effect %in% names(metadata)) {
-                if (verbose) {
-                    message("[Info] Random effect column '", rand_effect, "' not found in metadata; fitting without random effects.")
-                }
-            } else {
-                n_studies <- length(unique(stats::na.omit(metadata[[rand_effect]])))
-                if (n_studies <= 1) {
-                    if (verbose) {
-                        message(
-                            "[Info] '", rand_effect, "' has only ", n_studies,
-                            " unique level; fitting fixed-effects model without random intercepts."
-                        )
-                    }
-                } else {
-                    cur_rand_formula <- paste0("(1 | ", rand_effect, ")")
-                }
-            }
-        }
-
-        ## Enforce pseudo_sens = TRUE if robust flags are requested
-        cur_pseudo_sens <- pseudo_sens
-        if (use_robust && !cur_pseudo_sens) {
-            if (verbose) {
-                message("[Info] Setting 'pseudo_sens = TRUE' to enable robust sensitivity flag calculation.")
-            }
-            cur_pseudo_sens <- TRUE
-        }
-
-        ## ------------------------------------------------------------------
-        ## Align feature matrix with metadata (auto-detect sample orientation)
-        ## ------------------------------------------------------------------
-        rownames(metadata) <- as.character(metadata$sample_id)
-        
-        if (all(rownames(metadata) %in% rownames(feature_mat))) {
-            # Samples are in ROWS of feature_mat
-            feature_mat <- feature_mat[rownames(metadata), , drop = FALSE]
-            taxa_are_rows <- FALSE
-        } else if (all(rownames(metadata) %in% colnames(feature_mat))) {
-            # Samples are in COLUMNS of feature_mat
-            feature_mat <- feature_mat[, rownames(metadata), drop = FALSE]
-            taxa_are_rows <- TRUE
-        } else {
-            stop(
-                "Internal alignment mismatch ", ft, " matrix sample names do not match ",
-                "metadata sample IDs. Was micara_obj modified outside MiCARA functions?",
-                call. = FALSE
-            )
-        }
-
-        ## Run ANCOM-BC2
-        # executes ANCOMBC::ancombc2() with bias correction, prevalence filtering, and sensitivity analysis.
-
-        if (verbose) {
-            rand_form_str <- if (is.null(cur_rand_formula)) "(none)" else cur_rand_formula
-
-            ancom_report <- c(
-                paste0("\n========== Running ANCOM-BC2 (", ft, ") =========="),
-                paste0("Fixed formula:   ", fix_formula),
-                paste0("Random formula:  ", rand_form_str),
-                paste0("Reference level: ", reference_level),
-                paste0("Method / Alpha:  ", p_adj_method, " / ", alpha),
-                "---------------------------------------------------"
-            )
-
-            message(paste(ancom_report, collapse = "\n"))
-        }
-
-        # Determine current feature type for dynamic message formatting ("taxa" or "pathways")
-        cur_type <- if (exists("ft")) ft else "features"
-
-        fit <- withCallingHandlers(
-            {
-                ANCOMBC::ancombc2(
-                    data          = feature_mat,
-                    taxa_are_rows = taxa_are_rows,
-                    meta_data     = metadata,
-                    fix_formula  = fix_formula,
-                    rand_formula = cur_rand_formula,
-                    p_adj_method = p_adj_method,
-                    group        = disease_col,
-                    prv_cut      = prv_cut,
-                    pseudo_sens  = cur_pseudo_sens,
-                    struc_zero   = struc_zero,
-                    neg_lb       = neg_lb,
-                    alpha        = alpha,
-                    pairwise     = pairwise,
-                    n_cl         = n_cores,
-                    verbose      = FALSE
-                )
-            },
-            warning = function(w) {
-                # Catch the bias estimation warning from ANCOM-BC2
-                if (grepl("The number of taxa used for estimating sample-specific biases", w$message)) {
-                    # Replace "taxa" with "pathways" (or current feature type) dynamically
-                    custom_msg <- gsub("number of taxa", paste("number of", cur_type), w$message)
-                    warning(custom_msg, call. = FALSE)
-                    invokeRestart("muffleWarning") # Prevent original warning from printing
-                }
-            }
-        )
-
-        res <- fit$res
-        
-
-        ## Extract Significant Results into Tidy Long Format
-        flag_prefix <- if (use_robust) "diff_robust_disease" else "diff_disease"
-        diff_cols <- grep(paste0("^", flag_prefix), colnames(res), value = TRUE)
-
-        if (length(diff_cols) == 0 && use_robust) {
-            warning("Robust flags ('", flag_prefix, "') not found in ANCOMBC output; falling back to standard differential flags.")
-            flag_prefix <- "diff_disease"
-            diff_cols <- grep(paste0("^", flag_prefix), colnames(res), value = TRUE)
-        }
-
-        comp_levels <- sub(flag_prefix, "", diff_cols)
-        feature_col <- if ("taxon" %in% names(res)) "taxon" else names(res)[1]
-
-        significant_list <- lapply(comp_levels, function(dl) {
-            diff_col <- paste0(flag_prefix, dl)
-            lfc_col <- paste0("lfc_disease", dl)
-            se_col <- paste0("se_disease", dl)
-            p_col <- paste0("p_disease", dl)
-            q_col <- paste0("q_disease", dl)
-
-            if (!diff_col %in% names(res)) {
-                return(NULL)
-            }
-
-            sig_rows <- res[[diff_col]] & !is.na(res[[diff_col]])
-
-            if (!any(sig_rows)) {
-                return(NULL)
-            }
-
-            data.frame(
-                feature = res[[feature_col]][sig_rows],
-                disease = dl,
-                lfc = res[[lfc_col]][sig_rows],
-                se = res[[se_col]][sig_rows],
-                p = res[[p_col]][sig_rows],
-                q = res[[q_col]][sig_rows],
-                direction = ifelse(res[[lfc_col]][sig_rows] > 0, "enriched", "depleted"),
-                stringsAsFactors = FALSE
-            )
-        })
-
-        significant <- do.call(rbind, significant_list)
-
-        if (is.null(significant) || nrow(significant) == 0) {
-            significant <- data.frame(
-                feature = character(0),
-                disease = character(0),
-                lfc = numeric(0),
-                se = numeric(0),
-                p = numeric(0),
-                q = numeric(0),
-                direction = character(0),
-                stringsAsFactors = FALSE
-            )
-        } else {
-            rownames(significant) <- NULL
-        }
-
-        if (verbose) {
-            flag_type <- if (use_robust) "robust" else "standard"
-            header <- paste0("Significant ", ft, " identified per disease comparison (", flag_type, " flags):")
-
-            if (nrow(significant) > 0) {
-                tbl <- table(significant$disease)
-                body <- paste(paste0("  ", names(tbl), ": ", tbl), collapse = "\n")
-            } else {
-                body <- paste0("  None detected at alpha = ", alpha)
-            }
-
-            sig_report <- c(
-                header,
-                body,
-                "---------------------------------------------------"
-            )
-
-            message(paste(sig_report, collapse = "\n"))
-        }
-
-        structure(
-            list(
-                ancombc2_fit    = fit,
-                res             = res,
-                significant     = significant,
-                feature_type    = ft,
-                fix_formula     = fix_formula,
-                rand_formula    = cur_rand_formula,
-                reference_level = reference_level,
-                use_robust      = use_robust
-            ),
-            class = "micara_diffab"
-        )
-    }
 
     ## ------------------------------------------------------------------
     ## 3. Execute Across Feature Types (taxa first then pathways) & Package Output
     ## ------------------------------------------------------------------
 
-    results <- lapply(available_types, .run_single)
+    results <- lapply(
+        available_types, .run_single,
+        micara_obj = micara_obj, reference_level = reference_level,
+        disease_col = disease_col, fix_effects = fix_effects,
+        exclude_covariates = exclude_covariates, rand_effect = rand_effect,
+        p_adj_method = p_adj_method, prv_cut = prv_cut, alpha = alpha,
+        pairwise = pairwise, struc_zero = struc_zero, neg_lb = neg_lb,
+        pseudo_sens = pseudo_sens, use_robust = use_robust,
+        n_cores = n_cores, verbose = verbose
+    )
     names(results) <- available_types
-
+    
     if (length(results) == 1) {
         return(results[[1]])
     } else {
@@ -551,3 +254,324 @@ run_diff_abundance <- function(
         return(results)
     }
 } # If you analyzed one feature type, it returns a single "micara_diffab" object. If you analyzed both, it returns a named list (diff_results$taxa and diff_results$pathways) under class "micara_diffab_list".
+
+
+
+
+## -------------------------------------------------------------------------
+## Internal helper of run_diff_abundance()
+## -------------------------------------------------------------------------
+
+# Runs ANCOM-BC2 on one feature table ("taxa" or "pathways") and extracts the
+# significant features; the other arguments are those of run_diff_abundance().
+#' @keywords internal
+#' @noRd
+.run_single <- function(ft, micara_obj, reference_level, disease_col, fix_effects,
+                        exclude_covariates, rand_effect, p_adj_method, prv_cut,
+                        alpha, pairwise, struc_zero, neg_lb, pseudo_sens,
+                        use_robust, n_cores, verbose) {
+    feature_mat <- micara_obj[[ft]]
+    metadata <- micara_obj$metadata
+    
+    ## Check abundance scale
+    current_scale <- micara_obj$abundance_type$final[[ft]]
+    if (!is.null(current_scale) && current_scale != "counts") {
+        warning(
+            "ANCOM-BC2 log-linear models expect integer count data, but '", ft,
+            "' matrix is currently in '", current_scale, "' scale. Results may be affected."
+        )
+    }
+    
+    ## Coerce matrix values to clean integer count format for ANCOM-BC2
+    feature_mat <- as.matrix(feature_mat)
+    if (!is.numeric(feature_mat)) {
+        stop("Feature matrix '", ft, "' must contain numeric values.")
+    }
+    
+    if (!all(feature_mat %% 1 == 0, na.rm = TRUE)) {
+        feature_mat <- round(feature_mat)
+    }
+    storage.mode(feature_mat) <- "integer"
+    
+    ## Reference level check & re-leveling around it
+    ## Reference level check & re-leveling
+    if (!"disease" %in% names(metadata)) {
+        stop("'disease' column is missing from metadata.")
+    }
+    
+    # sanitizes and cleans disease category labels so they don't break R formula syntax or cause string-mismatch errors during model fitting and downstream calculations
+    raw_disease <- as.character(metadata$disease)
+    clean_disease <- make.names(raw_disease)
+    
+    if (!identical(raw_disease, clean_disease)) {
+        if (verbose) {
+            message("[Notice] Non-standard characters or spaces found in metadata$disease. Sanitizing labels with `make.names()`.")
+        }
+        metadata$disease <- clean_disease
+        # Also update the user's reference_level string to match the sanitized target
+        reference_level <- make.names(reference_level)
+    }
+    
+    
+    disease_levels <- unique(as.character(metadata$disease))
+    
+    if (!reference_level %in% disease_levels) {
+        stop(
+            "reference_level '", reference_level, "' was not found in metadata$disease.\n",
+            "Available levels in your dataset: ", paste(paste0("'", disease_levels, "'"), collapse = ", "), "\n",
+            "Please specify 'reference_level = \"<your_baseline>\"' in run_diff_abundance()."
+        )
+    }
+    
+    if (verbose) {
+        message("[Info] Re-leveling 'disease' with reference level: '", reference_level, "'")
+    }
+    # set the reference group before calling ANCOM-BC2
+    metadata$disease <- stats::relevel(factor(metadata$disease), ref = reference_level)
+    
+    ## Determine Fixed Effects
+    cur_fix_effects <- fix_effects
+    if (is.null(cur_fix_effects)) {
+        cur_fix_effects <- setdiff(micara_obj$confounders, c("study_name", "disease"))
+        
+        # Automatically prefer continuous 'age' over 'age_category'
+        if ("age" %in% cur_fix_effects && "age_category" %in% cur_fix_effects) {
+            cur_fix_effects <- setdiff(cur_fix_effects, "age_category")
+            if (verbose) {
+                message("[Info] Both 'age' and 'age_category' present. Retaining continuous 'age' and dropping 'age_category' to prevent collinearity.")
+            }
+        }
+    }
+    
+    if (!is.null(exclude_covariates)) {
+        cur_fix_effects <- setdiff(cur_fix_effects, exclude_covariates)
+    }
+    
+    
+    ## Validate presence and variance of fixed effect variables and automatically dropping covariates that have zero variance or missing values.
+    valid_fix <- character(0)
+    for (cov in cur_fix_effects) {
+        if (!cov %in% names(metadata)) {
+            warning("Covariate '", cov, "' specified in fixed effects was not found in metadata; dropping.")
+            next
+        }
+        
+        col_vals <- metadata[[cov]]
+        if (any(is.na(col_vals))) {
+            warning(
+                "Covariate '", cov, "' contains missing values. Consider running ",
+                "impute_metadata() first to prevent sample loss during model fitting."
+            )
+        }
+        
+        if (length(unique(stats::na.omit(col_vals))) <= 1) {
+            warning("Covariate '", cov, "' has zero variance (constant); dropping from fixed effects.")
+            next
+        }
+        
+        valid_fix <- c(valid_fix, cov)
+    }
+    
+    fix_formula <- paste(c(valid_fix, "disease"), collapse = " + ")
+    
+    ## Determine Random Effects (Multi-Cohort Safeguard)
+    # if your dataset only contains a single study, it safely turns off (1 | study_name) to prevent model fitting errors.
+    cur_rand_formula <- NULL
+    if (!is.null(rand_effect)) {
+        if (!rand_effect %in% names(metadata)) {
+            if (verbose) {
+                message("[Info] Random effect column '", rand_effect, "' not found in metadata; fitting without random effects.")
+            }
+        } else {
+            n_studies <- length(unique(stats::na.omit(metadata[[rand_effect]])))
+            if (n_studies <= 1) {
+                if (verbose) {
+                    message(
+                        "[Info] '", rand_effect, "' has only ", n_studies,
+                        " unique level; fitting fixed-effects model without random intercepts."
+                    )
+                }
+            } else {
+                cur_rand_formula <- paste0("(1 | ", rand_effect, ")")
+            }
+        }
+    }
+    
+    ## Enforce pseudo_sens = TRUE if robust flags are requested
+    cur_pseudo_sens <- pseudo_sens
+    if (use_robust && !cur_pseudo_sens) {
+        if (verbose) {
+            message("[Info] Setting 'pseudo_sens = TRUE' to enable robust sensitivity flag calculation.")
+        }
+        cur_pseudo_sens <- TRUE
+    }
+    
+    ## ------------------------------------------------------------------
+    ## Align feature matrix with metadata (auto-detect sample orientation)
+    ## ------------------------------------------------------------------
+    rownames(metadata) <- as.character(metadata$sample_id)
+    
+    if (all(rownames(metadata) %in% rownames(feature_mat))) {
+        # Samples are in ROWS of feature_mat
+        feature_mat <- feature_mat[rownames(metadata), , drop = FALSE]
+        taxa_are_rows <- FALSE
+    } else if (all(rownames(metadata) %in% colnames(feature_mat))) {
+        # Samples are in COLUMNS of feature_mat
+        feature_mat <- feature_mat[, rownames(metadata), drop = FALSE]
+        taxa_are_rows <- TRUE
+    } else {
+        stop(
+            "Internal alignment mismatch ", ft, " matrix sample names do not match ",
+            "metadata sample IDs. Was micara_obj modified outside MiCARA functions?",
+            call. = FALSE
+        )
+    }
+    
+    ## Run ANCOM-BC2
+    # executes ANCOMBC::ancombc2() with bias correction, prevalence filtering, and sensitivity analysis.
+    
+    if (verbose) {
+        rand_form_str <- if (is.null(cur_rand_formula)) "(none)" else cur_rand_formula
+        
+        ancom_report <- c(
+            paste0("\n========== Running ANCOM-BC2 (", ft, ") =========="),
+            paste0("Fixed formula:   ", fix_formula),
+            paste0("Random formula:  ", rand_form_str),
+            paste0("Reference level: ", reference_level),
+            paste0("Method / Alpha:  ", p_adj_method, " / ", alpha),
+            "---------------------------------------------------"
+        )
+        
+        message(paste(ancom_report, collapse = "\n"))
+    }
+    
+    # Determine current feature type for dynamic message formatting ("taxa" or "pathways")
+    cur_type <- if (exists("ft")) ft else "features"
+    
+    fit <- withCallingHandlers(
+        {
+            ANCOMBC::ancombc2(
+                data          = feature_mat,
+                taxa_are_rows = taxa_are_rows,
+                meta_data     = metadata,
+                fix_formula  = fix_formula,
+                rand_formula = cur_rand_formula,
+                p_adj_method = p_adj_method,
+                group        = disease_col,
+                prv_cut      = prv_cut,
+                pseudo_sens  = cur_pseudo_sens,
+                struc_zero   = struc_zero,
+                neg_lb       = neg_lb,
+                alpha        = alpha,
+                pairwise     = pairwise,
+                n_cl         = n_cores,
+                verbose      = FALSE
+            )
+        },
+        warning = function(w) {
+            # Catch the bias estimation warning from ANCOM-BC2
+            if (grepl("The number of taxa used for estimating sample-specific biases", w$message)) {
+                # Replace "taxa" with "pathways" (or current feature type) dynamically
+                custom_msg <- gsub("number of taxa", paste("number of", cur_type), w$message)
+                warning(custom_msg, call. = FALSE)
+                invokeRestart("muffleWarning") # Prevent original warning from printing
+            }
+        }
+    )
+    
+    res <- fit$res
+    
+    
+    ## Extract Significant Results into Tidy Long Format
+    flag_prefix <- if (use_robust) "diff_robust_disease" else "diff_disease"
+    diff_cols <- grep(paste0("^", flag_prefix), colnames(res), value = TRUE)
+    
+    if (length(diff_cols) == 0 && use_robust) {
+        warning("Robust flags ('", flag_prefix, "') not found in ANCOMBC output; falling back to standard differential flags.")
+        flag_prefix <- "diff_disease"
+        diff_cols <- grep(paste0("^", flag_prefix), colnames(res), value = TRUE)
+    }
+    
+    comp_levels <- sub(flag_prefix, "", diff_cols)
+    feature_col <- if ("taxon" %in% names(res)) "taxon" else names(res)[1]
+    
+    significant_list <- lapply(comp_levels, function(dl) {
+        diff_col <- paste0(flag_prefix, dl)
+        lfc_col <- paste0("lfc_disease", dl)
+        se_col <- paste0("se_disease", dl)
+        p_col <- paste0("p_disease", dl)
+        q_col <- paste0("q_disease", dl)
+        
+        if (!diff_col %in% names(res)) {
+            return(NULL)
+        }
+        
+        sig_rows <- res[[diff_col]] & !is.na(res[[diff_col]])
+        
+        if (!any(sig_rows)) {
+            return(NULL)
+        }
+        
+        data.frame(
+            feature = res[[feature_col]][sig_rows],
+            disease = dl,
+            lfc = res[[lfc_col]][sig_rows],
+            se = res[[se_col]][sig_rows],
+            p = res[[p_col]][sig_rows],
+            q = res[[q_col]][sig_rows],
+            direction = ifelse(res[[lfc_col]][sig_rows] > 0, "enriched", "depleted"),
+            stringsAsFactors = FALSE
+        )
+    })
+    
+    significant <- do.call(rbind, significant_list)
+    
+    if (is.null(significant) || nrow(significant) == 0) {
+        significant <- data.frame(
+            feature = character(0),
+            disease = character(0),
+            lfc = numeric(0),
+            se = numeric(0),
+            p = numeric(0),
+            q = numeric(0),
+            direction = character(0),
+            stringsAsFactors = FALSE
+        )
+    } else {
+        rownames(significant) <- NULL
+    }
+    
+    if (verbose) {
+        flag_type <- if (use_robust) "robust" else "standard"
+        header <- paste0("Significant ", ft, " identified per disease comparison (", flag_type, " flags):")
+        
+        if (nrow(significant) > 0) {
+            tbl <- table(significant$disease)
+            body <- paste(paste0("  ", names(tbl), ": ", tbl), collapse = "\n")
+        } else {
+            body <- paste0("  None detected at alpha = ", alpha)
+        }
+        
+        sig_report <- c(
+            header,
+            body,
+            "---------------------------------------------------"
+        )
+        
+        message(paste(sig_report, collapse = "\n"))
+    }
+    
+    structure(
+        list(
+            ancombc2_fit    = fit,
+            res             = res,
+            significant     = significant,
+            feature_type    = ft,
+            fix_formula     = fix_formula,
+            rand_formula    = cur_rand_formula,
+            reference_level = reference_level,
+            use_robust      = use_robust
+        ),
+        class = "micara_diffab"
+    )
+}
