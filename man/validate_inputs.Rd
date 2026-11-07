@@ -24,8 +24,9 @@ validate_inputs(
 
 \item{metadata}{Sample metadata. Must contain sample IDs and disease labels.}
 
-\item{disease_col}{Name of the disease column in metadata. Default "disease".
-#' @param confounders Optional character vector of metadata columns to treat as
+\item{disease_col}{Name of the disease column in metadata. Default "disease".}
+
+\item{confounders}{Optional character vector of metadata columns to treat as
 confounders, for example \code{c("age", "BMI", "antibiotics")}. The default
 \code{NULL} recognises common host and study covariates by name
 (case-insensitive): \code{study_name}, \code{age}, \code{age_category},

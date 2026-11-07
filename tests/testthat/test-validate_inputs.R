@@ -514,3 +514,59 @@ test_that("HUMAnN RPK pathway tables need pathways_scale = 'rpk'", {
     expect_equal(from_rpk$abundance_type$final$pathways, "counts")
     expect_equal(from_rpk$pathways, from_prop$pathways)
 })
+
+## ------------------------------------------------------------------------
+## Internal helpers (review point 9)
+## ------------------------------------------------------------------------
+
+test_that("detect_scale() recognises each supported scale", {
+    counts <- matrix(c(10, 30, 20, 40), nrow = 2)
+    prop <- sweep(counts, 2, colSums(counts), "/")
+    
+    expect_equal(detect_scale(counts), "counts")
+    expect_equal(detect_scale(prop), "proportion")
+    expect_equal(detect_scale(prop * 100), "percentage")
+    expect_equal(detect_scale(prop * 1e6), "cpm")
+    expect_equal(detect_scale(log(prop)), "transformed/log")
+    expect_error(detect_scale(prop * 1234.5), "pathways_scale")
+})
+
+test_that("reconstruct_counts() rescales relative abundances by sequencing depth", {
+    pct <- matrix(c(25, 75, 40, 60), nrow = 2)
+    
+    expect_equal(
+        reconstruct_counts(pct, "percentage", c(1000, 2000)),
+        matrix(c(250, 750, 800, 1200), nrow = 2)
+    )
+    expect_identical(reconstruct_counts(pct, "counts", c(1000, 2000)), pct)
+})
+
+test_that("process_dataset() rescales only when sequencing depth is available", {
+    prop <- matrix(c(0.25, 0.75, 0.4, 0.6), nrow = 2)
+    
+    expect_message(
+        res <- process_dataset(prop, "proportion", "taxa", has_reads = TRUE, sample_reads = c(100, 1000)),
+        "Rescaling relative abundances"
+    )
+    expect_equal(res, matrix(c(25, 75, 400, 600), nrow = 2))
+    
+    expect_warning(
+        res <- process_dataset(prop, "proportion", "taxa", has_reads = FALSE, sample_reads = NULL),
+        "number_reads' was not provided"
+    )
+    expect_identical(res, prop)
+})
+
+test_that("prepare_abundance_table() moves the feature column to row names", {
+    df <- data.frame(feature = c("a", "b"), S1 = c(1, 2), S2 = c(3, 4))
+    mat <- prepare_abundance_table(df, "taxa")
+    
+    expect_equal(rownames(mat), c("a", "b"))
+    expect_equal(colnames(mat), c("S1", "S2"))
+    expect_error(prepare_abundance_table(rbind(df, df), "taxa"), "duplicated feature names")
+})
+
+test_that(".to_df() accepts matrices and rejects other objects", {
+    expect_s3_class(.to_df(matrix(1:4, nrow = 2), "taxa"), "data.frame")
+    expect_error(.to_df(list(1, 2), "taxa"), "'taxa' must be a data.frame")
+})

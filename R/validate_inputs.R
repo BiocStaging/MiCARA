@@ -1,6 +1,8 @@
 # ================================================================
 # MetaPhlAn / HUMAnN Pre-processing Helper (Idempotent)
 # ================================================================
+#' @keywords internal
+#' @noRd
 clean_shotgun_input <- function(df) {
     if (!is.data.frame(df) || ncol(df) == 0) {
         return(df)
@@ -53,7 +55,7 @@ clean_shotgun_input <- function(df) {
 #' @param pathways Functional pathway abundance table. Must be a data.frame.
 #' @param metadata Sample metadata. Must contain sample IDs and disease labels.
 #' @param disease_col Name of the disease column in metadata. Default "disease".
-#' #' @param confounders Optional character vector of metadata columns to treat as
+#' @param confounders Optional character vector of metadata columns to treat as
 #'   confounders, for example \code{c("age", "BMI", "antibiotics")}. The default
 #'   \code{NULL} recognises common host and study covariates by name
 #'   (case-insensitive): \code{study_name}, \code{age}, \code{age_category},
@@ -146,30 +148,19 @@ validate_inputs <- function(
     taxa <- tryCatch(as.data.frame(taxa), error = function(e) taxa)
     pathways <- tryCatch(as.data.frame(pathways), error = function(e) pathways)
     metadata <- tryCatch(as.data.frame(metadata), error = function(e) metadata)
-
+    
     ## ================================================================
     ## 1. Input Type Coercion & Enforcement
     ## ================================================================
-    .to_df <- function(df, name) {
-        if (inherits(df, "DFrame") || is(df, "DataFrame") || is.matrix(df)) {
-            return(as.data.frame(df))
-        }
-        if (is.matrix(df)) {
-            return(as.data.frame(df))
-        }
-        if (is.data.frame(df)) {
-            return(as.data.frame(df)) # Handles base data.frame, tibble, data.table
-        }
-        stop(sprintf("'%s' must be a data.frame, matrix, or Bioconductor DFrame.", name), call. = FALSE)
-    }
-
     taxa <- .to_df(taxa, "taxa")
     pathways <- .to_df(pathways, "pathways")
     metadata <- .to_df(metadata, "metadata")
-
+    
     # Step 0: Preprocess MetaPhlAn/HUMAnN formats non-destructively
     taxa <- clean_shotgun_input(taxa)
     pathways <- clean_shotgun_input(pathways)
+
+  
 
     ## ================================================================
     ## 2. Metadata Column & Read Count Aliases Check
@@ -229,70 +220,9 @@ validate_inputs <- function(
     ## ================================================================
     ## 3. Convert Abundance Data Frames & Separate Feature Name Column
     ## ================================================================
-    prepare_abundance_table <- function(df, label) {
-        if (ncol(df) < 1L) {
-            stop("'", label, "' must contain at least one column.", call. = FALSE)
-        }
-
-        col1_name <- colnames(df)[1]
-        col1_is_feature <- is.character(df[[1]]) || is.factor(df[[1]]) ||
-            tolower(col1_name) %in% c("feature_id", "feature", "taxon", "taxa", "pathway", "gene", "clade", "id", "#otu id", "otu_id") ||
-            grepl("^#", col1_name)
-
-        if (col1_is_feature) {
-            if (ncol(df) < 2L) {
-                stop("'", label, "' must contain a feature-name column and at least one sample column.", call. = FALSE)
-            }
-            feature_names <- as.character(df[[1]])
-            mat_df <- df[, -1, drop = FALSE]
-        } else {
-            feature_names <- rownames(df)
-            if (is.null(feature_names) || identical(feature_names, as.character(seq_len(nrow(df))))) {
-                feature_names <- paste0("feature_", seq_len(nrow(df)))
-            }
-            mat_df <- df
-        }
-
-        if (anyNA(feature_names) || any(feature_names == "")) {
-            stop("'", label, "' contains missing or empty feature names.", call. = FALSE)
-        }
-
-        if (anyDuplicated(feature_names)) {
-            dup_names <- unique(feature_names[duplicated(feature_names)])
-            stop("'", label, "' contains duplicated feature names: ", paste(head(dup_names, 5L), collapse = ", "), call. = FALSE)
-        }
-
-        non_num <- !vapply(mat_df, is.numeric, logical(1))
-        if (any(non_num)) {
-            stop("'", label, "' contains non-numeric columns.", call. = FALSE)
-        }
-
-        mat <- as.matrix(mat_df)
-        storage.mode(mat) <- "double"
-        rownames(mat) <- feature_names
-
-        if (is.null(colnames(mat)) || anyNA(colnames(mat)) || any(colnames(mat) == "")) {
-            stop("'", label, "' contains missing or empty sample IDs.", call. = FALSE)
-        }
-
-        if (anyDuplicated(colnames(mat))) {
-            stop("'", label, "' contains duplicated sample IDs.", call. = FALSE)
-        }
-
-        if (anyNA(mat) || any(!is.finite(mat))) {
-            stop("'", label, "' contains missing or non-finite abundance values.", call. = FALSE)
-        }
-
-        if (any(mat < 0)) {
-            stop("'", label, "' contains negative abundance values.", call. = FALSE)
-        }
-
-        return(mat)
-    }
-
     taxa <- prepare_abundance_table(taxa, "taxa")
     pathways <- prepare_abundance_table(pathways, "pathways")
-
+    
     ## ================================================================
     ## 4. Sample ID Checks & Alignment
     ## ================================================================
@@ -398,68 +328,15 @@ validate_inputs <- function(
     ## ================================================================
     ## 7. Abundance Scale Detection & Re-construction
     ## ================================================================
-    detect_scale <- function(mat) {
-        if (is.data.frame(mat)) {
-            num_cols <- vapply(mat, is.numeric, logical(1))
-            mat <- as.matrix(mat[, num_cols, drop = FALSE])
-        } else {
-            mat <- as.matrix(mat)
-        }
-
-        if (length(mat) == 0) {
-            stop("Unrecognised abundance scale. Unable to determine scale.", call. = FALSE)
-        }
-
-        # 1. Negative values -> log/transformed
-        if (any(mat < 0, na.rm = TRUE)) {
-            return("transformed/log")
-        }
-
-        # 2. Integer counts
-        is_integer_like <- all(abs(mat - round(mat)) < 1e-5, na.rm = TRUE)
-        if (is_integer_like) {
-            return("counts")
-        }
-
-        totals <- colSums(mat, na.rm = TRUE)
-        median_total <- stats::median(totals, na.rm = TRUE)
-        max_val <- max(mat, na.rm = TRUE)
-        max_total <- max(totals, na.rm = TRUE)
-
-        # 3. Proportion scale (0 to 1)
-        # Max value <= 1.05 & max total <= 1.05 (handles filtered pathways smoothly)
-        if (max_val <= 1.05 && max_total <= 1.05) {
-            return("proportion")
-        }
-
-        # 4. Percentage scale (0 to 100)
-        # Max value <= 100.05 & sample sums average ~100
-        if (max_val <= 100.05 && abs(median_total - 100) <= 10) {
-            return("percentage")
-        }
-
-        # 5. HUMAnN copies per million (samples sum to about one million)
-        if (abs(median_total - 1e6) <= 1e5) {
-            return("cpm")
-        }
-        
-        # 6. Fallback: Throw informative error for ambiguous continuous scale
-        stop(
-            "Unrecognised abundance scale: values are not integer counts, proportions, ",
-            "percentages or CPM. For HUMAnN RPK pathway tables, use pathways_scale = \"rpk\".",
-            call. = FALSE
-        )
-    }
-
     ## Remove samples with zero recorded sequencing depth
     if ("number_reads" %in% names(metadata) &&
         is.numeric(metadata$number_reads)) {
         zero_depth <- !is.na(metadata$number_reads) &
             metadata$number_reads <= 0
-
+        
         if (any(zero_depth)) {
             dropped_ids <- metadata$sample_id[zero_depth]
-
+            
             if (verbose) {
                 warning(
                     "Removing ",
@@ -469,9 +346,9 @@ validate_inputs <- function(
                     call. = FALSE
                 )
             }
-
+            
             keep <- !zero_depth
-
+            
             taxa <- taxa[, keep, drop = FALSE]
             pathways <- pathways[, keep, drop = FALSE]
             metadata <- metadata[keep, , drop = FALSE]
@@ -489,43 +366,22 @@ validate_inputs <- function(
         pathways <- sweep(pathways, 2, pmax(colSums(pathways), .Machine$double.eps), FUN = "/")
         pathways_working_scale <- "proportion"
     }
-
+    
     has_reads <- (
         "number_reads" %in% names(metadata) &&
             is.numeric(metadata$number_reads) &&
             all(is.finite(metadata$number_reads)) &&
             all(metadata$number_reads >= 0)
     )
-
-    reconstruct_counts <- function(mat, scale, sample_reads) {
-        if (scale == "counts") {
-            return(mat)
-        }
-        prop_mat <- if (scale == "percentage") mat / 100 else mat
-        round(sweep(prop_mat, 2, sample_reads, FUN = "*"))
-    }
-
-    process_dataset <- function(mat, scale, name) {
-        if (scale %in% c("percentage", "proportion")) {
-            if (has_reads) {
-                message("[", name, "] Back-calculating estimated raw counts using 'metadata$number_reads'.")
-                return(reconstruct_counts(mat, scale, metadata$number_reads))
-            } else {
-                warning("[", name, "] Input is in '", scale, "' scale and 'metadata$number_reads' was not provided.", call. = FALSE)
-            }
-        }
-        return(mat)
-    }
-
-    taxa <- process_dataset(taxa, taxa_scale, "taxa")
-    pathways <- process_dataset(pathways, pathways_working_scale, "pathways")
-
+    
+    
+    taxa <- process_dataset(taxa, taxa_scale, "taxa", has_reads, metadata$number_reads)
+    pathways <- process_dataset(pathways, pathways_working_scale, "pathways", has_reads, metadata$number_reads)
+    
     final_taxa_scale <- if (has_reads && taxa_scale %in% c("percentage", "proportion")) "counts" else taxa_scale
     final_pathways_scale <- if (has_reads && pathways_working_scale %in% c("percentage", "proportion")) "counts" else pathways_working_scale
-
-    ## ================================================================
-    ## 8. Post-reconstruction Zero-Sum Filtering
-    ## ================================================================
+    
+ 
     ## ================================================================
     ## 8. Post-reconstruction Zero-Sum Filtering
     ## ================================================================
@@ -645,4 +501,167 @@ validate_inputs <- function(
         ),
         class = "micara_input"
     )
+}
+
+
+## -------------------------------------------------------------------------
+## Internal helpers of validate_inputs()
+## -------------------------------------------------------------------------
+#' @keywords internal
+#' @noRd
+.to_df <- function(df, name) {
+    if (inherits(df, "DFrame") || is(df, "DataFrame") || is.matrix(df)) {
+        return(as.data.frame(df))
+    }
+    if (is.matrix(df)) {
+        return(as.data.frame(df))
+    }
+    if (is.data.frame(df)) {
+        return(as.data.frame(df)) # Handles base data.frame, tibble, data.table
+    }
+    stop(sprintf("'%s' must be a data.frame, matrix, or Bioconductor DFrame.", name), call. = FALSE)
+}
+
+
+#' @keywords internal
+#' @noRd
+prepare_abundance_table <- function(df, label) {
+    if (ncol(df) < 1L) {
+        stop("'", label, "' must contain at least one column.", call. = FALSE)
+    }
+    
+    col1_name <- colnames(df)[1]
+    col1_is_feature <- is.character(df[[1]]) || is.factor(df[[1]]) ||
+        tolower(col1_name) %in% c("feature_id", "feature", "taxon", "taxa", "pathway", "gene", "clade", "id", "#otu id", "otu_id") ||
+        grepl("^#", col1_name)
+    
+    if (col1_is_feature) {
+        if (ncol(df) < 2L) {
+            stop("'", label, "' must contain a feature-name column and at least one sample column.", call. = FALSE)
+        }
+        feature_names <- as.character(df[[1]])
+        mat_df <- df[, -1, drop = FALSE]
+    } else {
+        feature_names <- rownames(df)
+        if (is.null(feature_names) || identical(feature_names, as.character(seq_len(nrow(df))))) {
+            feature_names <- paste0("feature_", seq_len(nrow(df)))
+        }
+        mat_df <- df
+    }
+    
+    if (anyNA(feature_names) || any(feature_names == "")) {
+        stop("'", label, "' contains missing or empty feature names.", call. = FALSE)
+    }
+    
+    if (anyDuplicated(feature_names)) {
+        dup_names <- unique(feature_names[duplicated(feature_names)])
+        stop("'", label, "' contains duplicated feature names: ", paste(head(dup_names, 5L), collapse = ", "), call. = FALSE)
+    }
+    
+    non_num <- !vapply(mat_df, is.numeric, logical(1))
+    if (any(non_num)) {
+        stop("'", label, "' contains non-numeric columns.", call. = FALSE)
+    }
+    
+    mat <- as.matrix(mat_df)
+    storage.mode(mat) <- "double"
+    rownames(mat) <- feature_names
+    
+    if (is.null(colnames(mat)) || anyNA(colnames(mat)) || any(colnames(mat) == "")) {
+        stop("'", label, "' contains missing or empty sample IDs.", call. = FALSE)
+    }
+    
+    if (anyDuplicated(colnames(mat))) {
+        stop("'", label, "' contains duplicated sample IDs.", call. = FALSE)
+    }
+    
+    if (anyNA(mat) || any(!is.finite(mat))) {
+        stop("'", label, "' contains missing or non-finite abundance values.", call. = FALSE)
+    }
+    
+    if (any(mat < 0)) {
+        stop("'", label, "' contains negative abundance values.", call. = FALSE)
+    }
+    
+    return(mat)
+}
+
+
+#' @keywords internal
+#' @noRd
+detect_scale <- function(mat) {
+    if (is.data.frame(mat)) {
+        num_cols <- vapply(mat, is.numeric, logical(1))
+        mat <- as.matrix(mat[, num_cols, drop = FALSE])
+    } else {
+        mat <- as.matrix(mat)
+    }
+    
+    if (length(mat) == 0) {
+        stop("Unrecognised abundance scale. Unable to determine scale.", call. = FALSE)
+    }
+    
+    # 1. Negative values -> log/transformed
+    if (any(mat < 0, na.rm = TRUE)) {
+        return("transformed/log")
+    }
+    
+    # 2. Integer counts
+    is_integer_like <- all(abs(mat - round(mat)) < 1e-5, na.rm = TRUE)
+    if (is_integer_like) {
+        return("counts")
+    }
+    
+    totals <- colSums(mat, na.rm = TRUE)
+    median_total <- stats::median(totals, na.rm = TRUE)
+    max_val <- max(mat, na.rm = TRUE)
+    max_total <- max(totals, na.rm = TRUE)
+    
+    # 3. Proportion scale (0 to 1)
+    # Max value <= 1.05 & max total <= 1.05 (handles filtered pathways smoothly)
+    if (max_val <= 1.05 && max_total <= 1.05) {
+        return("proportion")
+    }
+    
+    # 4. Percentage scale (0 to 100)
+    # Max value <= 100.05 & sample sums average ~100
+    if (max_val <= 100.05 && abs(median_total - 100) <= 10) {
+        return("percentage")
+    }
+    
+    # 5. HUMAnN copies per million (samples sum to about one million)
+    if (abs(median_total - 1e6) <= 1e5) {
+        return("cpm")
+    }
+    
+    # 6. Fallback: Throw informative error for ambiguous continuous scale
+    stop(
+        "Unrecognised abundance scale: values are not integer counts, proportions, ",
+        "percentages or CPM. For HUMAnN RPK pathway tables, use pathways_scale = \"rpk\".",
+        call. = FALSE
+    )
+}
+
+#' @keywords internal
+#' @noRd
+reconstruct_counts <- function(mat, scale, sample_reads) {
+    if (scale == "counts") {
+        return(mat)
+    }
+    prop_mat <- if (scale == "percentage") mat / 100 else mat
+    round(sweep(prop_mat, 2, sample_reads, FUN = "*"))
+}
+
+#' @keywords internal
+#' @noRd
+process_dataset <- function(mat, scale, name, has_reads, sample_reads) {
+    if (scale %in% c("percentage", "proportion")) {
+        if (has_reads) {
+            message("[", name, "] Rescaling relative abundances to a count scale using 'metadata$number_reads'.")
+            return(reconstruct_counts(mat, scale, sample_reads))
+        } else {
+            warning("[", name, "] Input is in '", scale, "' scale and 'metadata$number_reads' was not provided.", call. = FALSE)
+        }
+    }
+    return(mat)
 }
