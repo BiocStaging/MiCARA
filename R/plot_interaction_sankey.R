@@ -166,121 +166,8 @@ plot_interaction_sankey <- function(
         stop(disease, " has no links passing the significance/strength cutoffs; nothing to plot.")
     }
 
-    ## ------------------------------------------------------------------
-    ## Inner helper function to construct and optionally save a single widget
-    ## ------------------------------------------------------------------
-    build_single_sankey <- function(links_df, link_label, file_suffix) {
-        if (is.null(links_df) || nrow(links_df) == 0L) {
-            warning(disease, " has no ", link_label, " links passing the cutoffs; skipping.")
-            return(NULL)
-        }
-
-        # Trim top-N links per pathway if requested
-        if (!is.null(top_n_per_pathway)) {
-            if (!is.numeric(top_n_per_pathway) || length(top_n_per_pathway) != 1L || top_n_per_pathway < 1) {
-                stop("'top_n_per_pathway' must be a positive integer.", call. = FALSE)
-            }
-            links_df$abs_rho <- abs(links_df$rho)
-            links_split <- split(links_df, links_df$pathway)
-            links_split <- lapply(links_split, function(df) {
-                df <- df[order(-df$abs_rho), , drop = FALSE]
-                utils::head(df, top_n_per_pathway)
-            })
-            links_df <- do.call(rbind, links_split)
-            links_df$abs_rho <- NULL
-            rownames(links_df) <- NULL
-        }
-
-        # Build node data frame (colored by expression/enrichment status)
-        node_names <- unique(c(links_df$taxon, links_df$pathway))
-
-        group_lookup <- if (!is.null(disease_data$node_directions) &&
-            all(c("name", "group") %in% names(disease_data$node_directions))) {
-            stats::setNames(
-                disease_data$node_directions$group,
-                disease_data$node_directions$name
-            )
-        } else {
-            character(0)
-        }
-
-        nodes <- data.frame(
-            name = node_names,
-            group = ifelse(node_names %in% names(group_lookup), group_lookup[node_names], "stable"),
-            stringsAsFactors = FALSE
-        )
-
-        links_df$IDsource <- match(links_df$taxon, nodes$name) - 1L
-        links_df$IDtarget <- match(links_df$pathway, nodes$name) - 1L
-        links_df$value <- abs(links_df$rho)
-
-        color_scale <- htmlwidgets::JS(
-            sprintf(
-                "d3.scaleOrdinal().domain(%s).range(%s)",
-                .to_js_array(names(node_colors)),
-                .to_js_array(unname(node_colors))
-            )
-        )
-
-        # Render Sankey widget (Link strips remain default grey)
-        widget <- networkD3::sankeyNetwork(
-            Links       = as.data.frame(links_df),
-            Nodes       = as.data.frame(nodes),
-            Source      = "IDsource",
-            Target      = "IDtarget",
-            Value       = "value",
-            NodeID      = "name",
-            NodeGroup   = "group",
-            colourScale = color_scale,
-            fontSize    = font_size,
-            nodeWidth   = node_width,
-            iterations  = 0
-        )
-
-        widget <- htmlwidgets::onRender(
-            widget,
-            sprintf('
-      function(el, x) {
-        d3.selectAll(".node text")
-          .style("font-weight", "bold")
-          .style("font-size", "%dpx")
-          .style("fill", "#000000");
-      }
-    ', font_size)
-        )
-
-        # Save output files if path provided
-        if (!is.null(save_path)) {
-
-            base_path <- sub("\\.(html|png)$", "", save_path, ignore.case = TRUE)
-            out_prefix <- if (file_suffix != "") paste0(base_path, "_", file_suffix) else base_path
-
-            html_path <- paste0(out_prefix, ".html")
-            htmlwidgets::saveWidget(widget, html_path, selfcontained = TRUE)
-
-            tryCatch(
-                {
-                    if (requireNamespace("webshot2", quietly = TRUE)) {
-                        webshot2::webshot(html_path, paste0(out_prefix, ".png"))
-                    } else {
-                        warning(
-                            "Package 'webshot2' is not installed; only the .html file was saved.",
-                            call. = FALSE
-                        )
-                    }
-                },
-                error = function(e) {
-                    warning(
-                        "Failed to export static PNG image (headless browser unavailable): ", e$message,
-                        "\nNote: The interactive .html file was saved successfully.",
-                        call. = FALSE
-                    )
-                }
-            )
-        }
-        return(widget)
-    }
-
+    
+   
     ## ------------------------------------------------------------------
     ## Process directions and return plot widget(s)
     ## ------------------------------------------------------------------
@@ -289,20 +176,20 @@ plot_interaction_sankey <- function(
         if (nrow(pos_links) == 0L) {
             stop(disease, " has no positive links passing the cutoffs; nothing to plot.", call. = FALSE)
         }
-        return(build_single_sankey(pos_links, "positive", ""))
+        return(build_single_sankey(pos_links, "positive", "", disease, disease_data, top_n_per_pathway, node_colors, font_size, node_width, save_path))
     } else if (direction == "negative") {
         neg_links <- all_links[all_links$rho < 0, , drop = FALSE]
         if (nrow(neg_links) == 0L) {
             stop(disease, " has no negative links passing the cutoffs; nothing to plot.", call. = FALSE)
         }
-        return(build_single_sankey(neg_links, "negative", ""))
+        return(build_single_sankey(neg_links, "negative", "", disease, disease_data, top_n_per_pathway, node_colors, font_size, node_width, save_path))
     } else { # direction == "both"
         pos_links <- all_links[all_links$rho > 0, , drop = FALSE]
         neg_links <- all_links[all_links$rho < 0, , drop = FALSE]
 
         # Silently return NULL if empty so no warnings fire
-        pos_widget <- if (nrow(pos_links) > 0L) build_single_sankey(pos_links, "positive", "positive") else NULL
-        neg_widget <- if (nrow(neg_links) > 0L) build_single_sankey(neg_links, "negative", "negative") else NULL
+        pos_widget <- if (nrow(pos_links) > 0L) build_single_sankey(pos_links, "positive", "positive", disease, disease_data, top_n_per_pathway, node_colors, font_size, node_width, save_path) else NULL
+        neg_widget <- if (nrow(neg_links) > 0L) build_single_sankey(neg_links, "negative", "negative", disease, disease_data, top_n_per_pathway, node_colors, font_size, node_width, save_path) else NULL
 
         plots <- list(positive = pos_widget, negative = neg_widget)
         plots <- plots[!vapply(plots, is.null, FUN.VALUE = logical(1))]
@@ -319,4 +206,123 @@ plot_interaction_sankey <- function(
 #' @noRd
 .to_js_array <- function(x) {
     paste0("[", paste0("\"", x, "\"", collapse = ", "), "]")
+}
+
+
+# Builds one Sankey widget from a set of links and optionally saves it as
+# .html (and .png); the other arguments are those of plot_interaction_sankey().
+#' @keywords internal
+#' @noRd
+build_single_sankey <- function(links_df, link_label, file_suffix, disease, disease_data,
+                                top_n_per_pathway, node_colors, font_size, node_width,
+                                save_path) {
+    if (is.null(links_df) || nrow(links_df) == 0L) {
+        warning(disease, " has no ", link_label, " links passing the cutoffs; skipping.")
+        return(NULL)
+    }
+    
+    # Trim top-N links per pathway if requested
+    if (!is.null(top_n_per_pathway)) {
+        if (!is.numeric(top_n_per_pathway) || length(top_n_per_pathway) != 1L || top_n_per_pathway < 1) {
+            stop("'top_n_per_pathway' must be a positive integer.", call. = FALSE)
+        }
+        links_df$abs_rho <- abs(links_df$rho)
+        links_split <- split(links_df, links_df$pathway)
+        links_split <- lapply(links_split, function(df) {
+            df <- df[order(-df$abs_rho), , drop = FALSE]
+            utils::head(df, top_n_per_pathway)
+        })
+        links_df <- do.call(rbind, links_split)
+        links_df$abs_rho <- NULL
+        rownames(links_df) <- NULL
+    }
+    
+    # Build node data frame (colored by expression/enrichment status)
+    node_names <- unique(c(links_df$taxon, links_df$pathway))
+    
+    group_lookup <- if (!is.null(disease_data$node_directions) &&
+                        all(c("name", "group") %in% names(disease_data$node_directions))) {
+        stats::setNames(
+            disease_data$node_directions$group,
+            disease_data$node_directions$name
+        )
+    } else {
+        character(0)
+    }
+    
+    nodes <- data.frame(
+        name = node_names,
+        group = ifelse(node_names %in% names(group_lookup), group_lookup[node_names], "stable"),
+        stringsAsFactors = FALSE
+    )
+    
+    links_df$IDsource <- match(links_df$taxon, nodes$name) - 1L
+    links_df$IDtarget <- match(links_df$pathway, nodes$name) - 1L
+    links_df$value <- abs(links_df$rho)
+    
+    color_scale <- htmlwidgets::JS(
+        sprintf(
+            "d3.scaleOrdinal().domain(%s).range(%s)",
+            .to_js_array(names(node_colors)),
+            .to_js_array(unname(node_colors))
+        )
+    )
+    
+    # Render Sankey widget (Link strips remain default grey)
+    widget <- networkD3::sankeyNetwork(
+        Links       = as.data.frame(links_df),
+        Nodes       = as.data.frame(nodes),
+        Source      = "IDsource",
+        Target      = "IDtarget",
+        Value       = "value",
+        NodeID      = "name",
+        NodeGroup   = "group",
+        colourScale = color_scale,
+        fontSize    = font_size,
+        nodeWidth   = node_width,
+        iterations  = 0
+    )
+    
+    widget <- htmlwidgets::onRender(
+        widget,
+        sprintf('
+      function(el, x) {
+        d3.selectAll(".node text")
+          .style("font-weight", "bold")
+          .style("font-size", "%dpx")
+          .style("fill", "#000000");
+      }
+    ', font_size)
+    )
+    
+    # Save output files if path provided
+    if (!is.null(save_path)) {
+        
+        base_path <- sub("\\.(html|png)$", "", save_path, ignore.case = TRUE)
+        out_prefix <- if (file_suffix != "") paste0(base_path, "_", file_suffix) else base_path
+        
+        html_path <- paste0(out_prefix, ".html")
+        htmlwidgets::saveWidget(widget, html_path, selfcontained = TRUE)
+        
+        tryCatch(
+            {
+                if (requireNamespace("webshot2", quietly = TRUE)) {
+                    webshot2::webshot(html_path, paste0(out_prefix, ".png"))
+                } else {
+                    warning(
+                        "Package 'webshot2' is not installed; only the .html file was saved.",
+                        call. = FALSE
+                    )
+                }
+            },
+            error = function(e) {
+                warning(
+                    "Failed to export static PNG image (headless browser unavailable): ", e$message,
+                    "\nNote: The interactive .html file was saved successfully.",
+                    call. = FALSE
+                )
+            }
+        )
+    }
+    return(widget)
 }

@@ -286,3 +286,20 @@ test_that("plot_interaction_sankey exports files and strips duplicate extension 
     if (file.exists(png_pos)) unlink(png_pos)
     if (file.exists(png_neg)) unlink(png_neg)
 })
+
+## ------------------------------------------------------------------------
+## Internal helper
+## ------------------------------------------------------------------------
+
+test_that("build_single_sankey() skips an empty set of links with a warning", {
+    expect_warning(
+        res <- build_single_sankey(
+            data.frame(), "positive", "",
+            disease = "T2D", disease_data = list(), top_n_per_pathway = NULL,
+            node_colors = c(up = "blue"), font_size = 12, node_width = 30,
+            save_path = NULL
+        ),
+        "no positive links"
+    )
+    expect_null(res)
+})
