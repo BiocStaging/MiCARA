@@ -16,9 +16,9 @@ correlation analysis, and interactive Sankey network visualization.
 
 MiCARA follows a streamlined 5-step pipeline:
 
-1.  **`validate_inputs()`** — check data formatting, reconstructs raw
-    counts from relative abundances/proportions if needed and filters
-    out high-missingness covariates (\>30%).
+1.  **`validate_inputs()`** — check data formatting, rescales relative
+    abundances to a count-like scale when `number_reads` is available
+    and filters out high-missingness covariates (\>30%).
 2.  **`impute_metadata()`** *(Optional)* — Imputes remaining missing
     metadata values (\<30%). \> **When to skip:** Skip if your metadata
     is 100% complete or if your study protocol requires Complete Case
@@ -104,3 +104,18 @@ plot_interaction_sankey(
     significance = "global"
 )
 ```
+
+### Comparison to other packages
+
+- `mia::getCrossAssociation()` computes associations between the
+  features of two experiments, such as taxa and pathways, but does not
+  adjust them for covariates.
+- MMUPHin corrects batch effects and performs meta-analytic differential
+  abundance across studies; MaAsLin 2 and MaAsLin 3 fit multivariable
+  models, with covariates and random effects, between features and
+  metadata. Neither tests associations between two feature tables.
+- MiCARA combines both steps. It first finds disease-associated taxa and
+  pathways with ANCOM-BC2 (with a study random effect for multi-cohort
+  data), then tests associations between them within each disease, after
+  residualising both on the same confounders, with per-disease and
+  optional global FDR control.

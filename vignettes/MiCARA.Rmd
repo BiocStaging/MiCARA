@@ -22,6 +22,34 @@ knitr::opts_chunk$set(
 )
 ```
 
+## Introduction
+
+Gut microbiome studies increasingly measure both which microbes are present (taxonomic profiles, for example from MetaPhlAn) and what they can do (functional pathway profiles, for example from HUMAnN) on the same samples. A natural question is which disease-associated taxa are linked to disease-associated pathways. Answering it is not straightforward: host and study factors such as age, BMI, sex or cohort can shift both a taxon and a pathway, producing correlations that have nothing to do with disease, and testing every taxon against every pathway creates a heavy multiple-testing burden.
+
+MiCARA addresses this in two layers:
+
+1. **Differential abundance** (`run_diff_abundance()`): ANCOM-BC2 identifies taxa and pathways that differ between each disease group and the reference group, adjusting for confounders and, across cohorts, for study as a random effect.
+2. **Confounder-adjusted taxon–pathway associations** (`compute_residualCLR_correlations()`): within each disease, only the differentially abundant taxa and pathways are kept. Their CLR-transformed abundances are residualised on the confounders, and Spearman correlations between the residuals are tested with Benjamini–Hochberg correction.
+
+Input validation (`validate_inputs()`), optional imputation of missing covariates (`impute_metadata()`), an optional global FDR correction across diseases (`compute_global_fdr()`) and interactive Sankey diagrams (`plot_interaction_sankey()`) complete the workflow.
+
+MiCARA builds on Bioconductor infrastructure: it uses ANCOM-BC2 from the ANCOMBC package and accepts `(Tree)SummarizedExperiment` and `MultiAssayExperiment` objects, so data from curatedMetagenomicData or imported with mia can be analysed directly. It adds to the existing Bioconductor microbiome tools a disease-focused, confounder-adjusted analysis of the links between taxonomic and functional profiles.
+
+### Relation to other packages
+
+- `mia::getCrossAssociation()` computes associations between the features of two experiments, such as taxa and pathways, but does not adjust them for covariates.
+- MMUPHin (`adjust_batch()`, `lm_meta()`) corrects batch effects and performs meta-analytic differential abundance across studies.
+- MaAsLin 2 and MaAsLin 3 fit multivariable models, with covariates and random effects, between features and metadata.
+
+MMUPHin and MaAsLin test features against metadata, not associations between two feature tables. What MiCARA adds is the combination of both steps in one workflow:
+
+- taxon–pathway associations are tested only among features that are differentially abundant in each disease, which focuses the analysis and reduces the number of tests;
+- both feature types are residualised on the same confounders before correlation, so links driven by age, BMI, sex or cohort are removed;
+- multi-cohort data are handled through a study random effect in ANCOM-BC2, and per-disease and optional global FDR control are applied to the associations.
+
+### Example data
+
+MiCARA includes a small simulated dataset of 30 samples (15 `healthy`, 15 `Case`, from two studies). `example_metadata` holds disease status, age category, BMI, gender and study. `example_taxa` holds 20 taxa and `example_pathways` 10 pathways, as Poisson counts with mean 50 and 100 respectively. The following signal was injected in the Case samples: Taxon_1, Taxon_2 and Taxon_3 were multiplied by 8, 10 and 6, and Pathway_2 by 7. Pathway_1 was generated from Taxon_1 (twice its count plus Poisson noise), so it is also enriched in Case and correlated with Taxon_1. The workflow below should therefore find these taxa and pathways enriched in Case and recover a positive Taxon_1–Pathway_1 association. The script that generates the data is in `inst/scripts/generate_example_data.R`.
 
 
 ## Installation
@@ -84,17 +112,19 @@ micara_obj <- validate_inputs(mae, experiments = c(taxa = "metaphlan", pathways 
 
 ### Step 2: Handling Missing Metadata (Optional)
 
-Covariate missingness can lead to sample loss during linear model fitting (listwise deletion). MiCARA provides impute_metadata() to address this via MICE:
-**When to use impute_metadata():
-Host covariates (e.g., age_category, BMI) have low-to-moderate missingness (<30%).
-You want to preserve sample size and statistical power.
+Missing covariate values would otherwise lead to samples being dropped during model fitting (complete-case analysis). `impute_metadata()` imputes them with MICE.
 
-**When to skip impute_metadata():
-Metadata contains zero missing values (NA).
-Institutional protocols mandate Complete Case Analysis (CCA).
+**When to use `impute_metadata()`:**
 
+- Host covariates (for example age or BMI) have low to moderate missingness, below the 30% cutoff used by `validate_inputs()`.
+- You want to keep the sample size and statistical power.
 
-Note: If you skip imputation, downstream functions will check for NAs in requested covariates and drop or warn on problematic variables before model fitting.
+**When to skip it:**
+
+- The metadata have no missing values.
+- Your study protocol requires a complete-case analysis.
+
+If you skip imputation, downstream functions check the requested covariates for missing values and drop or warn about problematic ones before model fitting.
 
 ```{r impute-step, eval = TRUE}
 # Optional: Impute remaining missing metadata values (<30%)
@@ -122,7 +152,7 @@ head(diff_results$pathways$significant)
 ```
 
 ### Step 4: Confounder-Adjusted Interaction Inference
-After identifying robust differentially abundant features, compute_residual_correlations() evaluates taxon–pathway interactions within each disease cohort:
+After identifying robust differentially abundant features, compute_residualCLR_correlations() evaluates taxon–pathway interactions within each disease cohort:
 1. Performs Centered Log-Ratio (CLR) transformations on full feature matrices.
 2. Filters to disease-specific significant taxa and pathways.
 3. Residualizes feature abundances against host covariates (e.g., age_category, BMI, gender, study_name) using QR decomposition.
@@ -208,5 +238,6 @@ sankeys_global$positive
 ```{r sessionInfo}
 sessionInfo()
 ```
+
 
 
