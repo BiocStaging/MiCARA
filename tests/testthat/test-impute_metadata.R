@@ -97,3 +97,42 @@ test_that("impute_metadata imputes user-declared confounders by default", {
     expect_identical(res$imputed_vars, "antibiotics")
     expect_false(anyNA(res$metadata$antibiotics))
 })
+
+## ------------------------------------------------------------------------
+## Single imputation 
+## ------------------------------------------------------------------------
+
+test_that("impute_metadata uses single imputation by default", {
+    d <- make_test_data(abundance_scale = "counts", covariate_missing_frac = 0.2)
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    res <- impute_metadata(validated, impute_vars = "BMI", verbose = FALSE)
+    
+    expect_equal(res$mice_fit$m, 1)
+    expect_false(anyNA(res$metadata$BMI))
+})
+
+test_that("impute_metadata checks m and imputation_index", {
+    d <- make_test_data(abundance_scale = "counts", covariate_missing_frac = 0.2)
+    validated <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    expect_error(
+        impute_metadata(validated, impute_vars = "BMI", m = 2, imputation_index = 3, verbose = FALSE),
+        "'imputation_index' must be a whole number between 1 and m"
+    )
+    expect_error(impute_metadata(validated, m = 0, verbose = FALSE), "'m' must be a single positive")
+})
+
+test_that("imputed character covariates stay character", {
+    d <- make_test_data(abundance_scale = "counts")
+    d$metadata$antibiotics <- rep(c("yes", "no"), length.out = nrow(d$metadata))
+    d$metadata$antibiotics[c(2, 5, 9)] <- NA
+    validated <- validate_inputs(
+        d$taxa, d$pathways, d$metadata,
+        confounders = c("age", "antibiotics"), verbose = FALSE
+    )
+    
+    res <- impute_metadata(validated, verbose = FALSE)
+    
+    expect_type(res$metadata$antibiotics, "character")
+})

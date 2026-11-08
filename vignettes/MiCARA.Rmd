@@ -112,7 +112,7 @@ micara_obj <- validate_inputs(mae, experiments = c(taxa = "metaphlan", pathways 
 
 ### Step 2: Handling Missing Metadata (Optional)
 
-Missing covariate values would otherwise lead to samples being dropped during model fitting (complete-case analysis). `impute_metadata()` imputes them with MICE.
+Missing covariate values would otherwise lead to samples being dropped during model fitting (complete-case analysis). `impute_metadata()` imputes them with MICE. It performs single imputation: one completed dataset is used for the downstream analysis, so p-values do not include the uncertainty from the imputation (see `?impute_metadata`). Pooling across multiple imputations is planned for a future release.
 
 **When to use `impute_metadata()`:**
 
