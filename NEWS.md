@@ -14,6 +14,7 @@
 * Sankey PNG export uses webshot2 only.
 * Vignette: new Introduction, comparison with related packages, description of the example data, installation section and BiocStyle format.
 * Tests no longer suppress warnings or skip packages listed in Imports.
+* New `print()` methods give compact summaries of MiCARA objects instead of printing the whole list.
 
 # MiCARA 0.99.2
 
