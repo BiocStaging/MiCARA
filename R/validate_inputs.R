@@ -553,7 +553,7 @@ validate_inputs <- function(
 #' @keywords internal
 #' @noRd
 .to_df <- function(df, name) {
-    if (inherits(df, "DFrame") || is(df, "DataFrame") || is.matrix(df)) {
+    if (inherits(df, "DFrame") || inherits(df, "DataFrame") || is.matrix(df)) {
         return(as.data.frame(df))
     }
     if (is.matrix(df)) {

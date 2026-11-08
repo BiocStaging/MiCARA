@@ -7,3 +7,4 @@
 ^analysis_output$
 ^doc$
 ^build$
+\.DS_Store$
