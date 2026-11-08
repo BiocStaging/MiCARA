@@ -71,6 +71,17 @@ micara_obj <- validate_inputs(
 )
 ```
 
+
+**Starting from Bioconductor objects.** `validate_inputs()` also accepts `(Tree)SummarizedExperiment` objects, for example from `curatedMetagenomicData` or `mia::importMetaPhlAn()` and `mia::importHUMAnN()`, or a `MultiAssayExperiment` holding both tables. The sample metadata are then taken from `colData`.
+
+```{r validate-bioc, eval = FALSE}
+# One (Tree)SummarizedExperiment for taxa and one for pathways
+micara_obj <- validate_inputs(taxa = tse_taxa, pathways = tse_pathways)
+
+# A MultiAssayExperiment holding both: name its taxa and pathway experiments
+micara_obj <- validate_inputs(mae, experiments = c(taxa = "metaphlan", pathways = "humann"))
+```
+
 ### Step 2: Handling Missing Metadata (Optional)
 
 Covariate missingness can lead to sample loss during linear model fitting (listwise deletion). MiCARA provides impute_metadata() to address this via MICE:

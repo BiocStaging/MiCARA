@@ -6,11 +6,12 @@
 \usage{
 validate_inputs(
   taxa,
-  pathways,
-  metadata,
+  pathways = NULL,
+  metadata = NULL,
   disease_col = "disease",
   confounders = NULL,
   pathways_scale = "auto",
+  experiments = c(taxa = "taxa", pathways = "pathways"),
   disease_min_samples = 10,
   metadata_missing_cutoff = 0.3,
   normalise = TRUE,
@@ -18,11 +19,19 @@ validate_inputs(
 )
 }
 \arguments{
-\item{taxa}{Taxonomic abundance table. Must be a data.frame.}
+\item{taxa}{Taxonomic abundance table (features in rows, samples in
+columns): a data.frame or matrix, a \code{SummarizedExperiment} or
+\code{TreeSummarizedExperiment} (its first assay is used), or a
+\code{MultiAssayExperiment} holding both the taxa and the pathway tables
+(see \code{experiments}).}
 
-\item{pathways}{Functional pathway abundance table. Must be a data.frame.}
+\item{pathways}{Functional pathway abundance table, in the same forms as
+\code{taxa}. Ignored when \code{taxa} is a \code{MultiAssayExperiment}.}
 
-\item{metadata}{Sample metadata. Must contain sample IDs and disease labels.}
+\item{metadata}{Sample metadata. Must contain sample IDs and disease labels.
+Optional when \code{taxa} is a \code{(Tree)SummarizedExperiment} or a
+\code{MultiAssayExperiment}: its sample data (\code{colData}) is then
+used.}
 
 \item{disease_col}{Name of the disease column in metadata. Default "disease".}
 
@@ -45,6 +54,10 @@ default HUMAnN output) cannot be recognised automatically; use
 \code{"proportion"}, \code{"percentage"} and \code{"cpm"}. CPM and RPK
 values are converted to within-sample proportions and then handled like
 relative abundances (see the section "Abundance scales").}
+
+\item{experiments}{Only used when \code{taxa} is a
+\code{MultiAssayExperiment}: the names (or positions) of its taxa and
+pathway experiments. Default \code{c(taxa = "taxa", pathways = "pathways")}.}
 
 \item{disease_min_samples}{Minimum required samples per disease group. Default 10.}
 

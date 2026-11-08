@@ -51,9 +51,17 @@ clean_shotgun_input <- function(df) {
 #' Performs quality control on taxonomic and functional pathway abundance
 #' tables and accompanying sample metadata.
 #'
-#' @param taxa Taxonomic abundance table. Must be a data.frame.
-#' @param pathways Functional pathway abundance table. Must be a data.frame.
+#' @param taxa Taxonomic abundance table (features in rows, samples in
+#'   columns): a data.frame or matrix, a \code{SummarizedExperiment} or
+#'   \code{TreeSummarizedExperiment} (its first assay is used), or a
+#'   \code{MultiAssayExperiment} holding both the taxa and the pathway tables
+#'   (see \code{experiments}).
+#' @param pathways Functional pathway abundance table, in the same forms as
+#'   \code{taxa}. Ignored when \code{taxa} is a \code{MultiAssayExperiment}.
 #' @param metadata Sample metadata. Must contain sample IDs and disease labels.
+#'   Optional when \code{taxa} is a \code{(Tree)SummarizedExperiment} or a
+#'   \code{MultiAssayExperiment}: its sample data (\code{colData}) is then
+#'   used.
 #' @param disease_col Name of the disease column in metadata. Default "disease".
 #' @param confounders Optional character vector of metadata columns to treat as
 #'   confounders, for example \code{c("age", "BMI", "antibiotics")}. The default
@@ -73,6 +81,9 @@ clean_shotgun_input <- function(df) {
 #'   \code{"proportion"}, \code{"percentage"} and \code{"cpm"}. CPM and RPK
 #'   values are converted to within-sample proportions and then handled like
 #'   relative abundances (see the section "Abundance scales").
+#' @param experiments Only used when \code{taxa} is a
+#'   \code{MultiAssayExperiment}: the names (or positions) of its taxa and
+#'   pathway experiments. Default \code{c(taxa = "taxa", pathways = "pathways")}.
 #' @param disease_min_samples Minimum required samples per disease group. Default 10.
 #' @param metadata_missing_cutoff Allowed missing value fraction for covariates. Default 0.30.
 #' @param normalise Logical indicating whether feature normalization should be performed.
@@ -133,17 +144,49 @@ clean_shotgun_input <- function(df) {
 #'     verbose = FALSE
 #' )
 validate_inputs <- function(
-  taxa,
-  pathways,
-  metadata,
-  disease_col = "disease",
-  confounders = NULL,
-  pathways_scale = "auto",
-  disease_min_samples = 10,
-  metadata_missing_cutoff = 0.30,
-  normalise = TRUE,
-  verbose = TRUE
+        taxa,
+        pathways = NULL,
+        metadata = NULL,
+        disease_col = "disease",
+        confounders = NULL,
+        pathways_scale = "auto",
+        experiments = c(taxa = "taxa", pathways = "pathways"),
+        disease_min_samples = 10,
+        metadata_missing_cutoff = 0.30,
+        normalise = TRUE,
+        verbose = TRUE
 ) {
+    
+    # Bioconductor containers: a MultiAssayExperiment holding both tables, or
+    # (Tree)SummarizedExperiment objects for taxa and pathways
+    if (inherits(taxa, "MultiAssayExperiment")) {
+        mae_inputs <- .from_multiassay(taxa, experiments)
+        taxa <- mae_inputs$taxa
+        pathways <- mae_inputs$pathways
+        if (is.null(metadata)) {
+            metadata <- mae_inputs$metadata
+        }
+    }
+    if (inherits(taxa, "SummarizedExperiment")) {
+        taxa_inputs <- .from_summarized_experiment(taxa, "taxa")
+        taxa <- taxa_inputs$table
+        if (is.null(metadata)) {
+            metadata <- taxa_inputs$metadata
+        }
+    }
+    if (inherits(pathways, "SummarizedExperiment")) {
+        pathways <- .from_summarized_experiment(pathways, "pathways")$table
+    }
+    if (is.null(pathways)) {
+        stop("'pathways' is required.", call. = FALSE)
+    }
+    if (is.null(metadata)) {
+        stop(
+            "'metadata' is required unless 'taxa' is a (Tree)SummarizedExperiment ",
+            "or MultiAssayExperiment with sample data.",
+            call. = FALSE
+        )
+    }
     # Auto-convert matrices, S4 DataFrames, and matrix-like objects to data.frame
     taxa <- tryCatch(as.data.frame(taxa), error = function(e) taxa)
     pathways <- tryCatch(as.data.frame(pathways), error = function(e) pathways)
@@ -664,4 +707,60 @@ process_dataset <- function(mat, scale, name, has_reads, sample_reads) {
         }
     }
     return(mat)
+}
+
+
+#' @keywords internal
+#' @noRd
+.from_summarized_experiment <- function(x, label) {
+    if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+        stop("Package 'SummarizedExperiment' is needed to read '", label, "'.", call. = FALSE)
+    }
+    assay_names <- SummarizedExperiment::assayNames(x)
+    if (length(assay_names) > 1L) {
+        message("[", label, "] Using the first assay ('", assay_names[1], "').")
+    }
+    mat <- as.matrix(SummarizedExperiment::assay(x, 1L))
+    if (is.null(rownames(mat))) {
+        rownames(mat) <- paste0("feature_", seq_len(nrow(mat)))
+    }
+    # Feature names as the first column, as in MetaPhlAn/HUMAnN tables
+    table <- data.frame(feature = rownames(mat), mat, check.names = FALSE, row.names = NULL)
+    metadata <- as.data.frame(SummarizedExperiment::colData(x))
+    if (ncol(metadata) == 0L) {
+        metadata <- NULL
+    }
+    list(table = table, metadata = metadata)
+}
+
+#' @keywords internal
+#' @noRd
+.from_multiassay <- function(mae, experiments) {
+    if (!requireNamespace("MultiAssayExperiment", quietly = TRUE)) {
+        stop("Package 'MultiAssayExperiment' is needed to read 'taxa'.", call. = FALSE)
+    }
+    if (length(experiments) != 2L || !all(c("taxa", "pathways") %in% names(experiments))) {
+        stop("'experiments' must name the taxa and pathway experiments, ",
+             "e.g. c(taxa = \"taxa\", pathways = \"pathways\").", call. = FALSE)
+    }
+    exps <- MultiAssayExperiment::experiments(mae)
+    sample_map <- as.data.frame(MultiAssayExperiment::sampleMap(mae))
+    
+    out <- list()
+    for (part in c("taxa", "pathways")) {
+        id <- experiments[[part]]
+        if (is.character(id) && !id %in% names(exps)) {
+            stop("Experiment '", id, "' not found in the MultiAssayExperiment. Available: ",
+                 paste(names(exps), collapse = ", "), call. = FALSE)
+        }
+        se <- exps[[id]]
+        exp_name <- if (is.character(id)) id else names(exps)[id]
+        # Rename the experiment's columns to the primary sample IDs used in colData
+        map <- sample_map[sample_map$assay == exp_name, , drop = FALSE]
+        colnames(se) <- as.character(map$primary[match(colnames(se), map$colname)])
+        out[[part]] <- se
+    }
+    metadata <- as.data.frame(MultiAssayExperiment::colData(mae))
+    out$metadata <- if (ncol(metadata) > 0L) metadata else NULL
+    out
 }

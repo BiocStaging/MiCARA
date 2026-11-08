@@ -570,3 +570,63 @@ test_that(".to_df() accepts matrices and rejects other objects", {
     expect_s3_class(.to_df(matrix(1:4, nrow = 2), "taxa"), "data.frame")
     expect_error(.to_df(list(1, 2), "taxa"), "'taxa' must be a data.frame")
 })
+
+
+## ------------------------------------------------------------------------
+## Bioconductor containers as input 
+## ------------------------------------------------------------------------
+
+make_test_se <- function(table, metadata = NULL) {
+    if (is.null(metadata)) {
+        return(SummarizedExperiment::SummarizedExperiment(list(counts = as.matrix(table))))
+    }
+    rownames(metadata) <- metadata$sample_id
+    SummarizedExperiment::SummarizedExperiment(
+        assays = list(counts = as.matrix(table)),
+        colData = metadata
+    )
+}
+
+test_that("SummarizedExperiment input gives the same result as data frames", {
+    skip_if_not_installed("SummarizedExperiment")
+    d <- make_test_data(abundance_scale = "counts")
+    from_df <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    taxa_se <- make_test_se(d$taxa, d$metadata)
+    pathways_se <- make_test_se(d$pathways, d$metadata)
+    from_se <- validate_inputs(taxa_se, pathways_se, verbose = FALSE)
+    
+    expect_equal(from_se$taxa, from_df$taxa)
+    expect_equal(from_se$pathways, from_df$pathways)
+    expect_equal(from_se$confounders, from_df$confounders)
+    expect_equal(from_se$metadata$disease, from_df$metadata$disease)
+})
+
+test_that("MultiAssayExperiment input gives the same result as data frames", {
+    skip_if_not_installed("SummarizedExperiment")
+    skip_if_not_installed("MultiAssayExperiment")
+    d <- make_test_data(abundance_scale = "counts")
+    from_df <- validate_inputs(d$taxa, d$pathways, d$metadata, verbose = FALSE)
+    
+    sample_data <- d$metadata
+    rownames(sample_data) <- sample_data$sample_id
+    mae <- MultiAssayExperiment::MultiAssayExperiment(
+        experiments = list(taxa = make_test_se(d$taxa), pathways = make_test_se(d$pathways)),
+        colData = sample_data
+    )
+    from_mae <- validate_inputs(mae, verbose = FALSE)
+    
+    expect_equal(from_mae$taxa, from_df$taxa)
+    expect_equal(from_mae$pathways, from_df$pathways)
+    expect_equal(from_mae$metadata$disease, from_df$metadata$disease)
+    
+    expect_error(
+        validate_inputs(mae, experiments = c(taxa = "taxa", pathways = "humann"), verbose = FALSE),
+        "Experiment 'humann' not found"
+    )
+})
+
+test_that("metadata is required for data frame input", {
+    d <- make_test_data(abundance_scale = "counts")
+    expect_error(validate_inputs(d$taxa, d$pathways, verbose = FALSE), "'metadata' is required")
+})

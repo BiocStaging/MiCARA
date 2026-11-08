@@ -29,7 +29,9 @@ Imports:
 Suggests: 
     BiocStyle,
     knitr,
+    MultiAssayExperiment,
     rmarkdown,
+    SummarizedExperiment,
     testthat (>= 3.0.0),
     webshot2
 VignetteBuilder: 
